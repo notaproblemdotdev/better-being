@@ -18,8 +18,8 @@ import { parseRatingInput, resolveInitFailureStatus, resolveSignInLabelKey, shou
 import { AppHeader } from "./components/AppHeader";
 import { EntryForm } from "./components/EntryForm";
 import { SettingsView } from "./components/SettingsView";
-import { StatusBanner } from "./components/StatusBanner";
 import { Tabs } from "./components/Tabs";
+import { ToastViewport, type ToastItem } from "./components/ToastViewport";
 import { WeekChartCard } from "./components/WeekChartCard";
 
 type BeforeInstallPromptEvent = Event & {
@@ -57,8 +57,7 @@ export function App() {
   const [locale, setLocale] = createSignal(initialLocale);
   const [themePreference, setThemePreference] = createSignal<ThemePreference>(initialThemePreference);
   const [theme, setTheme] = createSignal<Theme>(resolveThemeFromPreference(initialThemePreference));
-  const [statusText, setStatusText] = createSignal(i18n.t("status.waitingForLogin"));
-  const [statusIsError, setStatusIsError] = createSignal(false);
+  const [toasts, setToasts] = createSignal<ToastItem[]>([]);
   const [isReady, setIsReady] = createSignal(false);
   const [signInEnabled, setSignInEnabled] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<"entry" | "week" | "settings">("entry");
@@ -73,6 +72,8 @@ export function App() {
     detectNotificationPermissionState(),
   );
   const [pushSubscription, setPushSubscription] = createSignal<PushSubscription | null>(null);
+  const toastTimeouts = new Map<number, number>();
+  let nextToastId = 1;
 
   const backend: DataBackend = resolveDataBackend(getEnvVar("VITE_DATA_BACKEND"));
   const pushApiBaseUrl = getEnvVar("VITE_PUSH_API_BASE_URL") ?? getEnvVar("VITE_LOCAL_API_BASE_URL") ?? "";
@@ -84,9 +85,18 @@ export function App() {
 
   applyTheme(theme());
 
-  const setStatus = (text: string, isError = false): void => {
-    setStatusText(text);
-    setStatusIsError(isError);
+  const setStatus = (text: string, isError = false, showToast = true): void => {
+    if (!showToast) {
+      return;
+    }
+
+    const id = nextToastId++;
+    setToasts((current) => [...current, { id, text, isError }]);
+    const timeoutId = window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+      toastTimeouts.delete(id);
+    }, isError ? 4500 : 3200);
+    toastTimeouts.set(id, timeoutId);
   };
 
   const setConnectedUiState = (): void => {
@@ -214,19 +224,19 @@ export function App() {
   }
 
   async function boot(): Promise<void> {
-    setStatus(t("status.waitingForLogin"));
+    setStatus(t("status.waitingForLogin"), false, false);
 
     try {
       await adapter.init();
 
       if (adapter.getAuthState() === "connected") {
         setConnectedUiState();
-        setStatus(backend === "google" ? t("status.sessionRestored") : t("status.connected"));
+        setStatus(backend === "google" ? t("status.sessionRestored") : t("status.connected"), false, false);
         return;
       }
 
       setSignInEnabled(true);
-      setStatus(t("status.clickSignIn", { signIn: t("auth.signIn") }));
+      setStatus(t("status.clickSignIn", { signIn: t("auth.signIn") }), false, false);
     } catch (error) {
       console.error(error);
       const failure = resolveInitFailureStatus(backend, error);
@@ -247,7 +257,7 @@ export function App() {
     const appInstalledHandler = (): void => {
       setDeferredInstallPrompt(null);
       setIsInstalled(true);
-      setStatus(t("status.appInstalled"));
+      setStatus(t("status.appInstalled"), false, false);
     };
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -300,6 +310,10 @@ export function App() {
       window.removeEventListener("appinstalled", appInstalledHandler);
       mediaQuery.removeEventListener("change", mediaQueryListener);
       window.clearInterval(reminderIntervalId);
+      for (const timeoutId of toastTimeouts.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      toastTimeouts.clear();
     });
   });
 
@@ -503,8 +517,6 @@ export function App() {
         }}
       />
 
-      <StatusBanner text={statusText()} isError={statusIsError()} />
-
       <Tabs
         activeTab={activeTab()}
         ariaLabel={t("tabs.ariaLabel")}
@@ -574,6 +586,8 @@ export function App() {
           void handleRequestReminderPermission();
         }}
       />
+
+      <ToastViewport toasts={toasts()} />
     </main>
   );
 }
