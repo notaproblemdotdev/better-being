@@ -145,11 +145,13 @@ async function boot(): Promise<void> {
     entryTab.addEventListener("click", () => showTab("entry"));
     weekTab.addEventListener("click", async () => {
       showTab("week");
-      await refreshWeeklyChart();
+      await generateWeeklyChartOnDemand();
     });
     ratingForm.addEventListener("submit", onSubmitRating);
 
-    setStatus("Kliknij 'Zaloguj przez Google'.");
+    if (!currentSpreadsheetId) {
+      setStatus("Kliknij 'Zaloguj przez Google'.");
+    }
   } catch (error) {
     console.error(error);
     setStatus("Nie udało się uruchomić klienta Google API.", true);
@@ -355,6 +357,17 @@ async function refreshWeeklyChart(): Promise<void> {
     console.error(error);
     setStatus("Nie udało się odczytać danych do wykresu.", true);
   }
+}
+
+async function generateWeeklyChartOnDemand(): Promise<void> {
+  if (!currentSpreadsheetId) {
+    setStatus("Najpierw zaloguj się przez Google.", true);
+    return;
+  }
+
+  setStatus("Generowanie wykresu z ostatniego tygodnia...");
+  await refreshWeeklyChart();
+  setStatus("Wykres zaktualizowany.");
 }
 
 function buildLastWeekSeries(rows: string[][]): RatingPoint[] {
