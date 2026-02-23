@@ -8,6 +8,36 @@
   --accent: #1f6d8a;
   --accent-strong: #164e65;
   --error: #af2a2a;
+  --bg-glow-1: #e6f2fb;
+  --bg-glow-2: #deefe9;
+  --chart-bg: #ffffff;
+  --chart-grid: #d8d8d8;
+  --chart-axis: #666666;
+  --chart-line: #1f6d8a;
+  --chart-point: #1f6d8a;
+  --chart-value: #123b4c;
+  --chart-label: #444444;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1d2a;
+  --panel: #16283a;
+  --text: #e4eef6;
+  --muted: #a7bece;
+  --line: #2d4459;
+  --accent: #3a8cb8;
+  --accent-strong: #5aa6ce;
+  --error: #ff8c8c;
+  --bg-glow-1: #15364f;
+  --bg-glow-2: #1a4a44;
+  --chart-bg: #102231;
+  --chart-grid: #365068;
+  --chart-axis: #b1c6d5;
+  --chart-line: #6bbce4;
+  --chart-point: #6bbce4;
+  --chart-value: #d5eefb;
+  --chart-label: #c3d7e5;
 }
 
 * {
@@ -18,8 +48,8 @@ body {
   margin: 0;
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at 15% 10%, #e6f2fb 0%, transparent 35%),
-    radial-gradient(circle at 85% 90%, #deefe9 0%, transparent 30%),
+    radial-gradient(circle at 15% 10%, var(--bg-glow-1) 0%, transparent 35%),
+    radial-gradient(circle at 85% 90%, var(--bg-glow-2) 0%, transparent 30%),
     var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -36,6 +66,27 @@ body {
   align-items: center;
   gap: 1rem;
   margin-bottom: 0.75rem;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.locale-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.locale-select {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.65rem;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
 }
 
 h1 {
@@ -123,13 +174,17 @@ input {
   height: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--chart-bg);
 }
 
 @media (max-width: 640px) {
   .top {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .top-actions {
+    justify-content: flex-start;
   }
 
   #rating {
