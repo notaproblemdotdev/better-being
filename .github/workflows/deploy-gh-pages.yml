@@ -26,7 +26,7 @@ jobs:
 
       - name: Build
         env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: bun run build
 
