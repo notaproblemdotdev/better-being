@@ -52,6 +52,11 @@ function detectNotificationPermissionState(): NotificationPermission | "unsuppor
 
 const BACKEND_COOKIE_NAME = "being_better_data_backend";
 type AppRoute = "hello" | "log-today" | "past-data" | "settings";
+const SETTINGS_KEY_LOCALE = "locale";
+const SETTINGS_KEY_THEME_PREFERENCE = "theme_preference";
+const SETTINGS_KEY_REMINDER_ENABLED = "reminder_enabled";
+const SETTINGS_KEY_REMINDER_TIME = "reminder_time";
+const SETTINGS_KEY_STORAGE_BACKEND = "storage_backend";
 
 function normalizePathname(pathname: string): string {
   if (pathname.length > 1 && pathname.endsWith("/")) {
@@ -105,6 +110,16 @@ function routeToTab(route: AppRoute): "hello" | "entry" | "week" | "settings" {
   return route;
 }
 
+function parseBooleanSetting(value: string | undefined): boolean | null {
+  if (value === "1" || value === "true") {
+    return true;
+  }
+  if (value === "0" || value === "false") {
+    return false;
+  }
+  return null;
+}
+
 export function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -145,6 +160,7 @@ export function App() {
   let bootSequence = 0;
   let gateBootSequence = 0;
   let settingsGoogleBootSequence = 0;
+  let isApplyingRemoteSettings = false;
 
   const pushApiBaseUrl = getEnvVar("VITE_PUSH_API_BASE_URL") ?? getEnvVar("VITE_LOCAL_API_BASE_URL") ?? "";
   const t = (key: I18nKey, vars?: Record<string, string>) => {
@@ -173,6 +189,77 @@ export function App() {
     setSignInEnabled(false);
   };
 
+  const buildSettingsPayload = (storageBackendOverride?: DataBackend): Record<string, string> => ({
+    [SETTINGS_KEY_LOCALE]: locale(),
+    [SETTINGS_KEY_THEME_PREFERENCE]: themePreference(),
+    [SETTINGS_KEY_REMINDER_ENABLED]: reminderEnabled() ? "1" : "0",
+    [SETTINGS_KEY_REMINDER_TIME]: reminderTime(),
+    [SETTINGS_KEY_STORAGE_BACKEND]: storageBackendOverride ?? selectedBackend() ?? "google",
+  });
+
+  const persistSettingsToAdapter = async (
+    targetAdapter: RatingsStoreAdapter | null = adapter(),
+    storageBackendOverride?: DataBackend,
+  ): Promise<void> => {
+    if (isApplyingRemoteSettings || !targetAdapter?.saveSettings || !targetAdapter.isReady()) {
+      return;
+    }
+
+    try {
+      await targetAdapter.saveSettings(buildSettingsPayload(storageBackendOverride));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const hydrateSettingsFromAdapter = async (targetAdapter: RatingsStoreAdapter, isStale: () => boolean): Promise<void> => {
+    if (!targetAdapter.loadSettings) {
+      return;
+    }
+
+    try {
+      const settings = await targetAdapter.loadSettings();
+      if (isStale()) {
+        return;
+      }
+
+      isApplyingRemoteSettings = true;
+
+      const nextLocale = parseLocale(settings[SETTINGS_KEY_LOCALE] ?? "");
+      if (nextLocale && nextLocale !== locale()) {
+        i18n.setLocale(nextLocale);
+        persistLocale(nextLocale);
+        setLocale(nextLocale);
+      }
+
+      const nextThemePreference = parseThemePreference(settings[SETTINGS_KEY_THEME_PREFERENCE] ?? "");
+      if (nextThemePreference && nextThemePreference !== themePreference()) {
+        persistThemePreference(nextThemePreference);
+        setThemePreference(nextThemePreference);
+        const nextTheme = resolveThemeFromPreference(nextThemePreference);
+        applyTheme(nextTheme);
+        setTheme(nextTheme);
+        setChartRefreshToken((value) => value + 1);
+      }
+
+      const parsedReminderEnabled = parseBooleanSetting(settings[SETTINGS_KEY_REMINDER_ENABLED]);
+      const parsedReminderTime = parseReminderTime(settings[SETTINGS_KEY_REMINDER_TIME] ?? "");
+      const nextReminderEnabled = parsedReminderEnabled ?? reminderEnabled();
+      const nextReminderTime = parsedReminderTime ?? reminderTime();
+      if (nextReminderEnabled !== reminderEnabled() || nextReminderTime !== reminderTime()) {
+        setReminderEnabled(nextReminderEnabled);
+        setReminderTime(nextReminderTime);
+        persistReminderSettings({ enabled: nextReminderEnabled, time: nextReminderTime });
+        void syncPushSettingsIfPossible(nextReminderEnabled, nextReminderTime);
+      }
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      isApplyingRemoteSettings = false;
+    }
+  };
+
   const syncThemePreference = async (nextPreference: ThemePreference): Promise<void> => {
     const nextTheme = resolveThemeFromPreference(nextPreference);
     setThemePreference(nextPreference);
@@ -184,6 +271,8 @@ export function App() {
     if (shouldRefreshWeekChart(routeToTab(activeRoute()))) {
       await refreshWeeklyChart();
     }
+
+    await persistSettingsToAdapter();
   };
 
   const syncLocale = async (nextLocale: Locale): Promise<void> => {
@@ -198,6 +287,8 @@ export function App() {
     if (routeToTab(activeRoute()) === "week") {
       await refreshWeeklyChart();
     }
+
+    await persistSettingsToAdapter();
   };
 
   const syncPushSettingsIfPossible = async (enabled: boolean, time: string): Promise<void> => {
@@ -228,6 +319,7 @@ export function App() {
     setReminderTime(validTime);
     persistReminderSettings({ enabled: nextEnabled, time: validTime });
     void syncPushSettingsIfPossible(nextEnabled, validTime);
+    void persistSettingsToAdapter();
   };
 
   const maybeSendReminder = (): void => {
@@ -305,6 +397,14 @@ export function App() {
       }
 
       if (currentAdapter.getAuthState() === "connected") {
+        await hydrateSettingsFromAdapter(currentAdapter, isStale);
+        if (isStale()) {
+          return;
+        }
+        await persistSettingsToAdapter(currentAdapter);
+        if (isStale()) {
+          return;
+        }
         setConnectedUiState();
         setStatus(backend === "google" ? t("status.sessionRestored") : t("status.connected"), false, false);
         return;
@@ -653,6 +753,9 @@ export function App() {
     }
 
     if (nextBackend === "indexeddb") {
+      if (selectedBackend() === "google") {
+        void persistSettingsToAdapter(adapter(), "indexeddb");
+      }
       setSettingsBackendDraft(null);
       setSettingsGoogleAdapter(null);
       setSettingsGoogleSignInEnabled(false);
@@ -764,6 +867,9 @@ export function App() {
   const handleBackendSelection = (backend: DataBackend): void => {
     setSelectedBackend(backend);
     setCookie(BACKEND_COOKIE_NAME, backend, 31536000);
+    if (backend === "google") {
+      void persistSettingsToAdapter();
+    }
   };
 
   const handleGateGoogleSignIn = async (): Promise<void> => {

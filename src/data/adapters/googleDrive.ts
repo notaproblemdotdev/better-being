@@ -19,7 +19,7 @@ type StoredAuthSession = {
 const GOOGLE_CLIENT_ID = getEnvVar("VITE_GOOGLE_CLIENT_ID") ?? "";
 const SHEET_TITLE = "being better";
 const DATA_SHEET_TITLE = "data";
-const CONFIG_SHEET_TITLE = "config";
+const SETTINGS_SHEET_TITLE = "settings";
 const AUTH_COOKIE_NAME = "being_better_auth";
 const SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
@@ -115,6 +115,57 @@ export class GoogleDriveRatingsAdapter implements RatingsStoreAdapter {
       });
   }
 
+  async loadSettings(): Promise<Record<string, string>> {
+    if (!this.currentSpreadsheetId) {
+      throw new Error("Sign in required");
+    }
+
+    const response = await window.gapi?.client.sheets.spreadsheets.values.get({
+      spreadsheetId: this.currentSpreadsheetId,
+      range: `${SETTINGS_SHEET_TITLE}!A2:B`,
+    });
+
+    const rows = response?.result.values ?? [];
+    const settings: Record<string, string> = {};
+
+    for (const row of rows) {
+      const key = row[0];
+      const value = row[1];
+      if (!key || typeof key !== "string") {
+        continue;
+      }
+      settings[key] = typeof value === "string" ? value : "";
+    }
+
+    return settings;
+  }
+
+  async saveSettings(settings: Record<string, string>): Promise<void> {
+    if (!this.currentSpreadsheetId) {
+      throw new Error("Sign in required");
+    }
+
+    const values = Object.entries(settings)
+      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+      .map(([key, value]) => [key, value]);
+
+    await window.gapi?.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: this.currentSpreadsheetId,
+      range: `${SETTINGS_SHEET_TITLE}!A2:B`,
+    });
+
+    if (values.length === 0) {
+      return;
+    }
+
+    await window.gapi?.client.sheets.spreadsheets.values.update({
+      spreadsheetId: this.currentSpreadsheetId,
+      range: `${SETTINGS_SHEET_TITLE}!A2:B${values.length + 1}`,
+      valueInputOption: "RAW",
+      resource: { values },
+    });
+  }
+
   isReady(): boolean {
     return this.currentSpreadsheetId !== null;
   }
@@ -205,7 +256,7 @@ export class GoogleDriveRatingsAdapter implements RatingsStoreAdapter {
 
     const createResponse = await window.gapi?.client.sheets.spreadsheets.create({
       properties: { title: SHEET_TITLE },
-      sheets: [{ properties: { title: DATA_SHEET_TITLE } }, { properties: { title: CONFIG_SHEET_TITLE } }],
+      sheets: [{ properties: { title: DATA_SHEET_TITLE } }, { properties: { title: SETTINGS_SHEET_TITLE } }],
     });
 
     const spreadsheetId = createResponse?.result.spreadsheetId;
@@ -279,6 +330,7 @@ declare global {
             batchUpdate: (params: Record<string, unknown>) => Promise<unknown>;
             values: {
               get: (params: Record<string, unknown>) => Promise<{ result: { values?: string[][] } }>;
+              clear: (params: Record<string, unknown>) => Promise<unknown>;
               update: (params: Record<string, unknown>) => Promise<unknown>;
               append: (params: Record<string, unknown>) => Promise<unknown>;
             };
@@ -354,25 +406,10 @@ async function findSpreadsheetIdByName(name: string): Promise<string | null> {
 }
 
 async function ensureHeaders(spreadsheetId: string): Promise<void> {
-  const response = await window.gapi?.client.sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${DATA_SHEET_TITLE}!A1:B1`,
-  });
-
-  const row = response?.result.values?.[0] ?? [];
-  const hasHeaders = row[0] === "timestamp" && row[1] === "rating";
-  if (hasHeaders) {
-    return;
-  }
-
-  await window.gapi?.client.sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${DATA_SHEET_TITLE}!A1:B1`,
-    valueInputOption: "RAW",
-    resource: {
-      values: [["timestamp", "rating"]],
-    },
-  });
+  await Promise.all([
+    ensureSheetHeader(spreadsheetId, DATA_SHEET_TITLE, ["timestamp", "rating"]),
+    ensureSheetHeader(spreadsheetId, SETTINGS_SHEET_TITLE, ["key", "value"]),
+  ]);
 }
 
 async function ensureRequiredSheets(spreadsheetId: string): Promise<void> {
@@ -391,8 +428,8 @@ async function ensureRequiredSheets(spreadsheetId: string): Promise<void> {
   if (!existingTitles.has(DATA_SHEET_TITLE)) {
     requests.push({ addSheet: { properties: { title: DATA_SHEET_TITLE } } });
   }
-  if (!existingTitles.has(CONFIG_SHEET_TITLE)) {
-    requests.push({ addSheet: { properties: { title: CONFIG_SHEET_TITLE } } });
+  if (!existingTitles.has(SETTINGS_SHEET_TITLE)) {
+    requests.push({ addSheet: { properties: { title: SETTINGS_SHEET_TITLE } } });
   }
 
   if (requests.length === 0) {
@@ -402,6 +439,27 @@ async function ensureRequiredSheets(spreadsheetId: string): Promise<void> {
   await window.gapi?.client.sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     resource: { requests },
+  });
+}
+
+async function ensureSheetHeader(spreadsheetId: string, sheetTitle: string, headerRow: [string, string]): Promise<void> {
+  const response = await window.gapi?.client.sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetTitle}!A1:B1`,
+  });
+
+  const row = response?.result.values?.[0] ?? [];
+  if (row[0] === headerRow[0] && row[1] === headerRow[1]) {
+    return;
+  }
+
+  await window.gapi?.client.sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${sheetTitle}!A1:B1`,
+    valueInputOption: "RAW",
+    resource: {
+      values: [headerRow],
+    },
   });
 }
 
