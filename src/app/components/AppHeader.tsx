@@ -14,12 +14,21 @@ export function AppHeader(props: {
   showSignIn: boolean;
   signInLabel: string;
   signInDisabled: boolean;
+  activeTab: "entry" | "week" | "settings";
+  entryLabel: string;
+  weekLabel: string;
+  settingsLabel: string;
+  entryDisabled: boolean;
+  weekDisabled: boolean;
   installLabel: string;
   installDisabled: boolean;
   onLocaleChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onThemeChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onSignIn: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onInstall: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+  onEntryClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+  onWeekClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+  onSettingsClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 }): JSX.Element {
   const [menuOpen, setMenuOpen] = createSignal(false);
   let menuEl: HTMLDivElement | undefined;
@@ -93,6 +102,47 @@ export function AppHeader(props: {
           role="menu"
           ref={menuEl}
         >
+          <div class="menu-item">
+            <span class="menu-label">{props.t("tabs.ariaLabel")}</span>
+            <div class="menu-nav">
+              <button
+                id="menu-tab-entry"
+                class={`btn${props.activeTab === "entry" ? " tab-active" : ""}`}
+                type="button"
+                disabled={props.entryDisabled}
+                onClick={(event) => {
+                  props.onEntryClick(event);
+                  setMenuOpen(false);
+                }}
+              >
+                {props.entryLabel}
+              </button>
+              <button
+                id="menu-tab-week"
+                class={`btn${props.activeTab === "week" ? " tab-active" : ""}`}
+                type="button"
+                disabled={props.weekDisabled}
+                onClick={(event) => {
+                  props.onWeekClick(event);
+                  setMenuOpen(false);
+                }}
+              >
+                {props.weekLabel}
+              </button>
+              <button
+                id="menu-tab-settings"
+                class={`btn${props.activeTab === "settings" ? " tab-active" : ""}`}
+                type="button"
+                onClick={(event) => {
+                  props.onSettingsClick(event);
+                  setMenuOpen(false);
+                }}
+              >
+                {props.settingsLabel}
+              </button>
+            </div>
+          </div>
+
           <div class="menu-item">
             <span class="menu-label">{props.t("locale.label")}</span>
             <select

@@ -1,9 +1,11 @@
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { buildLastWeekSeries, type RatingPoint } from "../chart/weekly";
 import { getEnvVar } from "../config/env";
 import { createAdapter, resolveDataBackend, type DataBackend } from "../data/createAdapter";
+import type { RatingsStoreAdapter } from "../data/types";
 import { createI18n, detectInitialLocale, parseLocale, persistLocale, SUPPORTED_LOCALES, toBcp47Locale, type I18nKey, type Locale } from "../i18n";
 import { ensurePushSubscription, isPushSupported, syncPushReminderSettings } from "../push/client";
+import { readCookie, setCookie } from "../session/cookies";
 import { detectInitialReminderSettings, markReminderSent, parseReminderTime, persistReminderSettings, shouldSendDailyReminder } from "../settings";
 import {
   applyTheme,
@@ -18,7 +20,6 @@ import { parseRatingInput, resolveInitFailureStatus, resolveSignInLabelKey, shou
 import { AppHeader } from "./components/AppHeader";
 import { EntryForm } from "./components/EntryForm";
 import { SettingsView } from "./components/SettingsView";
-import { Tabs } from "./components/Tabs";
 import { ToastViewport, type ToastItem } from "./components/ToastViewport";
 import { WeekChartCard } from "./components/WeekChartCard";
 
@@ -48,6 +49,8 @@ function detectNotificationPermissionState(): NotificationPermission | "unsuppor
   return Notification.permission;
 }
 
+const BACKEND_COOKIE_NAME = "being_better_data_backend";
+
 export function App() {
   const initialLocale = detectInitialLocale();
   const i18n = createI18n(initialLocale);
@@ -72,12 +75,13 @@ export function App() {
     detectNotificationPermissionState(),
   );
   const [pushSubscription, setPushSubscription] = createSignal<PushSubscription | null>(null);
+  const [selectedBackend, setSelectedBackend] = createSignal<DataBackend | null>(resolveDataBackend(getEnvVar("VITE_DATA_BACKEND")));
+  const [adapter, setAdapter] = createSignal<RatingsStoreAdapter | null>(null);
   const toastTimeouts = new Map<number, number>();
   let nextToastId = 1;
+  let bootSequence = 0;
 
-  const backend: DataBackend = resolveDataBackend(getEnvVar("VITE_DATA_BACKEND"));
   const pushApiBaseUrl = getEnvVar("VITE_PUSH_API_BASE_URL") ?? getEnvVar("VITE_LOCAL_API_BASE_URL") ?? "";
-  const adapter = createAdapter(backend);
   const t = (key: I18nKey, vars?: Record<string, string>) => {
     locale();
     return i18n.t(key, vars);
@@ -187,7 +191,8 @@ export function App() {
   };
 
   async function refreshWeeklyChart(): Promise<void> {
-    if (!adapter.isReady()) {
+    const currentAdapter = adapter();
+    if (!currentAdapter || !currentAdapter.isReady()) {
       setStatus(t("status.signInFirst"), true);
       return;
     }
@@ -199,7 +204,7 @@ export function App() {
       from.setDate(from.getDate() - 6);
       from.setHours(0, 0, 0, 0);
 
-      const rows = await adapter.listRatings({
+      const rows = await currentAdapter.listRatings({
         fromIso: from.toISOString(),
         toIso,
       });
@@ -213,7 +218,8 @@ export function App() {
   }
 
   async function generateWeeklyChartOnDemand(): Promise<void> {
-    if (!adapter.isReady()) {
+    const currentAdapter = adapter();
+    if (!currentAdapter || !currentAdapter.isReady()) {
       setStatus(t("status.signInFirst"), true);
       return;
     }
@@ -223,13 +229,17 @@ export function App() {
     setStatus(t("status.chartUpdated"));
   }
 
-  async function boot(): Promise<void> {
+  async function boot(currentAdapter: RatingsStoreAdapter, backend: DataBackend, sequence: number): Promise<void> {
+    const isStale = (): boolean => sequence !== bootSequence || selectedBackend() !== backend || adapter() !== currentAdapter;
     setStatus(t("status.waitingForLogin"), false, false);
 
     try {
-      await adapter.init();
+      await currentAdapter.init();
+      if (isStale()) {
+        return;
+      }
 
-      if (adapter.getAuthState() === "connected") {
+      if (currentAdapter.getAuthState() === "connected") {
         setConnectedUiState();
         setStatus(backend === "google" ? t("status.sessionRestored") : t("status.connected"), false, false);
         return;
@@ -238,6 +248,9 @@ export function App() {
       setSignInEnabled(true);
       setStatus(t("status.clickSignIn", { signIn: t("auth.signIn") }), false, false);
     } catch (error) {
+      if (isStale()) {
+        return;
+      }
       console.error(error);
       const failure = resolveInitFailureStatus(backend, error);
       setStatus(t(failure.key), failure.isError);
@@ -246,6 +259,13 @@ export function App() {
   }
 
   onMount(() => {
+    if (!selectedBackend()) {
+      const storedBackend = resolveDataBackend(readCookie(BACKEND_COOKIE_NAME) ?? undefined);
+      if (storedBackend) {
+        setSelectedBackend(storedBackend);
+      }
+    }
+
     const standalone = isStandaloneDisplay();
     setIsInstalled(standalone);
 
@@ -303,8 +323,6 @@ export function App() {
     }
     const reminderIntervalId = window.setInterval(maybeSendReminder, 30_000);
 
-    void boot();
-
     onCleanup(() => {
       window.removeEventListener("beforeinstallprompt", beforeInstallPromptHandler);
       window.removeEventListener("appinstalled", appInstalledHandler);
@@ -317,15 +335,35 @@ export function App() {
     });
   });
 
+  createEffect(() => {
+    const backend = selectedBackend();
+    bootSequence += 1;
+    const sequence = bootSequence;
+
+    if (!backend) {
+      setAdapter(null);
+      setIsReady(false);
+      setSignInEnabled(false);
+      return;
+    }
+
+    const nextAdapter = createAdapter(backend);
+    setAdapter(nextAdapter);
+    setIsReady(false);
+    setSignInEnabled(false);
+    void boot(nextAdapter, backend, sequence);
+  });
+
   const handleSignIn = async (): Promise<void> => {
-    if (!adapter.requestSignIn) {
+    const currentAdapter = adapter();
+    if (!currentAdapter?.requestSignIn) {
       return;
     }
 
     setStatus(t("status.openingGoogleLogin"));
 
     try {
-      await adapter.requestSignIn();
+      await currentAdapter.requestSignIn();
       setConnectedUiState();
       setStatus(t("status.connected"));
     } catch (error) {
@@ -350,7 +388,8 @@ export function App() {
   const handleSubmitRating = async (event: SubmitEvent): Promise<void> => {
     event.preventDefault();
 
-    if (!adapter.isReady()) {
+    const currentAdapter = adapter();
+    if (!currentAdapter || !currentAdapter.isReady()) {
       setStatus(t("status.signInFirst"), true);
       return;
     }
@@ -363,7 +402,7 @@ export function App() {
 
     try {
       setStatus(t("status.savingRating"));
-      await adapter.appendRating({
+      await currentAdapter.appendRating({
         timestamp: new Date().toISOString(),
         rating,
       });
@@ -477,6 +516,11 @@ export function App() {
     setStatus(t("status.installUseBrowserMenu"));
   };
 
+  const handleBackendSelection = (backend: DataBackend): void => {
+    setSelectedBackend(backend);
+    setCookie(BACKEND_COOKIE_NAME, backend, 31536000);
+  };
+
   const permissionStateLabel = (): string => {
     if (notificationPermission() === "unsupported") {
       return t("settings.notificationsUnsupported");
@@ -492,100 +536,114 @@ export function App() {
 
   return (
     <main class="shell">
-      <AppHeader
-        locale={locale()}
-        supportedLocales={SUPPORTED_LOCALES}
-        t={t}
-        theme={theme()}
-        isConnected={isReady()}
-        showSignIn={!isReady()}
-        signInLabel={t(resolveSignInLabelKey(isReady()))}
-        signInDisabled={isReady() || !signInEnabled()}
-        installLabel={isInstalled() ? t("install.installed") : t("install.installApp")}
-        installDisabled={isInstalled()}
-        onLocaleChange={(event) => {
-          void handleLocaleChange(event);
-        }}
-        onThemeChange={(event) => {
-          void handleThemeChange(event);
-        }}
-        onSignIn={() => {
-          void handleSignIn();
-        }}
-        onInstall={() => {
-          void handleInstall();
-        }}
-      />
+      <Show
+        when={selectedBackend() === null}
+        fallback={
+          <>
+            <AppHeader
+              locale={locale()}
+              supportedLocales={SUPPORTED_LOCALES}
+              t={t}
+              theme={theme()}
+              isConnected={isReady()}
+              showSignIn={!isReady()}
+              signInLabel={t(resolveSignInLabelKey(isReady()))}
+              signInDisabled={isReady() || !signInEnabled()}
+              activeTab={activeTab()}
+              entryLabel={t("tabs.entry")}
+              weekLabel={t("tabs.week")}
+              settingsLabel={t("tabs.settings")}
+              entryDisabled={!isReady()}
+              weekDisabled={!isReady()}
+              installLabel={isInstalled() ? t("install.installed") : t("install.installApp")}
+              installDisabled={isInstalled()}
+              onLocaleChange={(event) => {
+                void handleLocaleChange(event);
+              }}
+              onThemeChange={(event) => {
+                void handleThemeChange(event);
+              }}
+              onSignIn={() => {
+                void handleSignIn();
+              }}
+              onInstall={() => {
+                void handleInstall();
+              }}
+              onEntryClick={handleEntryTab}
+              onWeekClick={() => {
+                void handleWeekTab();
+              }}
+              onSettingsClick={handleSettingsTab}
+            />
 
-      <Tabs
-        activeTab={activeTab()}
-        ariaLabel={t("tabs.ariaLabel")}
-        entryLabel={t("tabs.entry")}
-        weekLabel={t("tabs.week")}
-        settingsLabel={t("tabs.settings")}
-        entryDisabled={!isReady()}
-        weekDisabled={!isReady()}
-        onEntryClick={handleEntryTab}
-        onWeekClick={() => {
-          void handleWeekTab();
-        }}
-        onSettingsClick={handleSettingsTab}
-      />
+            <EntryForm
+              label={t("form.question")}
+              saveLabel={t("form.save")}
+              value={ratingValue()}
+              onValueInput={(event) => {
+                setRatingValue(event.currentTarget.value);
+              }}
+              onSubmit={(event) => {
+                void handleSubmitRating(event);
+              }}
+            />
 
-      <EntryForm
-        stepLabel={t("form.step")}
-        title={t("form.title")}
-        subtitle={t("form.subtitle")}
-        label={t("form.question")}
-        saveLabel={t("form.save")}
-        value={ratingValue()}
-        onValueInput={(event) => {
-          setRatingValue(event.currentTarget.value);
-        }}
-        onSubmit={(event) => {
-          void handleSubmitRating(event);
-        }}
-      />
+            <WeekChartCard
+              visible={activeTab() === "week"}
+              title={t("chart.title")}
+              ariaLabel={t("chart.ariaLabel")}
+              emptyLabel={t("chart.empty")}
+              points={chartPoints()}
+              refreshToken={chartRefreshToken()}
+            />
 
-      <WeekChartCard
-        visible={activeTab() === "week"}
-        title={t("chart.title")}
-        ariaLabel={t("chart.ariaLabel")}
-        emptyLabel={t("chart.empty")}
-        points={chartPoints()}
-        refreshToken={chartRefreshToken()}
-      />
-
-      <SettingsView
-        visible={activeTab() === "settings"}
-        languageLabel={t("settings.language")}
-        themeLabel={t("settings.theme")}
-        reminderEnabledLabel={t("settings.reminderEnabled")}
-        reminderTimeLabel={t("settings.reminderTime")}
-        reminderPermissionLabel={t("settings.reminderPermission")}
-        reminderPermissionActionLabel={t("settings.reminderPermissionAction")}
-        reminderPermissionStateLabel={permissionStateLabel()}
-        themeOptionLightLabel={t("theme.light")}
-        themeOptionDarkLabel={t("theme.dark")}
-        themeOptionSystemLabel={t("theme.system")}
-        locale={locale()}
-        supportedLocales={SUPPORTED_LOCALES}
-        themePreference={themePreference()}
-        reminderEnabled={reminderEnabled()}
-        reminderTime={reminderTime()}
-        showNotificationPermissionAction={notificationPermission() !== "unsupported" && notificationPermission() !== "granted"}
-        onLocaleChange={(event) => {
-          void handleLocaleChange(event);
-        }}
-        onThemePreferenceChange={(event) => {
-          void handleThemePreferenceChange(event);
-        }}
-        onReminderEnabledChange={handleReminderEnabledChange}
-        onReminderTimeChange={handleReminderTimeChange}
-        onRequestReminderPermission={() => {
-          void handleRequestReminderPermission();
-        }}
-      />
+            <SettingsView
+              visible={activeTab() === "settings"}
+              languageLabel={t("settings.language")}
+              themeLabel={t("settings.theme")}
+              reminderEnabledLabel={t("settings.reminderEnabled")}
+              reminderTimeLabel={t("settings.reminderTime")}
+              reminderPermissionLabel={t("settings.reminderPermission")}
+              reminderPermissionActionLabel={t("settings.reminderPermissionAction")}
+              reminderPermissionStateLabel={permissionStateLabel()}
+              themeOptionLightLabel={t("theme.light")}
+              themeOptionDarkLabel={t("theme.dark")}
+              themeOptionSystemLabel={t("theme.system")}
+              locale={locale()}
+              supportedLocales={SUPPORTED_LOCALES}
+              themePreference={themePreference()}
+              reminderEnabled={reminderEnabled()}
+              reminderTime={reminderTime()}
+              showNotificationPermissionAction={notificationPermission() !== "unsupported" && notificationPermission() !== "granted"}
+              onLocaleChange={(event) => {
+                void handleLocaleChange(event);
+              }}
+              onThemePreferenceChange={(event) => {
+                void handleThemePreferenceChange(event);
+              }}
+              onReminderEnabledChange={handleReminderEnabledChange}
+              onReminderTimeChange={handleReminderTimeChange}
+              onRequestReminderPermission={() => {
+                void handleRequestReminderPermission();
+              }}
+            />
+          </>
+        }
+      >
+        <section class="card backend-gate" aria-label={t("backend.ariaLabel")}>
+          <h1 id="title">{t("app.title")}</h1>
+          <h2 class="backend-gate-title">{t("backend.title")}</h2>
+          <p class="backend-gate-description">{t("backend.description")}</p>
+          <div class="backend-gate-options">
+            <button class="btn btn-primary" type="button" onClick={() => handleBackendSelection("google")}>
+              {t("backend.google")}
+            </button>
+            <button class="btn" type="button" onClick={() => handleBackendSelection("indexeddb")}>
+              {t("backend.indexedDb")}
+            </button>
+          </div>
+        </section>
+      </Show>
 
       <ToastViewport toasts={toasts()} />
     </main>

@@ -25,6 +25,7 @@ export type I18nKey =
   | "status.generatingChart"
   | "status.chartUpdated"
   | "status.localApiUnavailable"
+  | "status.indexedDbUnavailable"
   | "status.appInstalled"
   | "status.installAccepted"
   | "status.installDismissed"
@@ -47,10 +48,19 @@ export type I18nKey =
   | "menu.toggle"
   | "menu.theme"
   | "menu.account"
+  | "backend.ariaLabel"
+  | "backend.title"
+  | "backend.description"
+  | "backend.google"
+  | "backend.indexedDb"
+  | "intro.title"
+  | "intro.body"
   | "form.step"
   | "form.title"
   | "form.subtitle"
   | "form.question"
+  | "form.helpLabel"
+  | "form.helpText"
   | "form.save"
   | "chart.title"
   | "chart.ariaLabel"
@@ -105,6 +115,7 @@ const I18N: Record<Locale, I18nDict> = {
     "status.generatingChart": "Generowanie wykresu z ostatniego tygodnia...",
     "status.chartUpdated": "Wykres zaktualizowany.",
     "status.localApiUnavailable": "Lokalne API jest niedostępne. Uruchom backend Bun.",
+    "status.indexedDbUnavailable": "IndexedDB jest niedostępne w tej przeglądarce.",
     "status.appInstalled": "Aplikacja jest już zainstalowana.",
     "status.installAccepted": "Instalacja rozpoczęta.",
     "status.installDismissed": "Instalacja anulowana.",
@@ -121,17 +132,26 @@ const I18N: Record<Locale, I18nDict> = {
     "status.pushSetupFailed": "Nie udało się skonfigurować powiadomień push.",
     "status.pushSyncFailed": "Nie udało się zapisać ustawień przypomnienia na serwerze.",
     "tabs.ariaLabel": "Widoki aplikacji",
-    "tabs.entry": "Dodaj ocenę",
-    "tabs.week": "Ostatni tydzień",
+    "tabs.entry": "Dzisiaj",
+    "tabs.week": "Ostatnie dni",
     "tabs.settings": "Ustawienia",
     "menu.toggle": "Otwórz menu",
     "menu.theme": "Motyw",
     "menu.account": "Konto",
+    "backend.ariaLabel": "Wybór źródła danych",
+    "backend.title": "Wybierz backend danych",
+    "backend.description": "Zdecyduj, gdzie aplikacja ma zapisywać Twoje odpowiedzi.",
+    "backend.google": "Google Sheets",
+    "backend.indexedDb": "Lokalnie (IndexedDB)",
+    "intro.title": "O aplikacji",
+    "intro.body": "To aplikacja do codziennego śledzenia samopoczucia i budowania lepszych nawyków.",
     "form.step": "Krok 1",
     "form.title": "Jak minął Twój dzień?",
-    "form.subtitle": "Przesuń suwak i zapisz ocenę od 1 do 10.",
-    "form.question": "Jak oceniasz swój dzień? 1 - bardzo zły dzień, 10 - najlepszy dzień od dawna",
-    "form.save": "Zapisz ocenę",
+    "form.subtitle": "Wybierz ocenę, która najlepiej oddaje dzisiejszy dzień.",
+    "form.question": "Jak oceniasz swój dzień?",
+    "form.helpLabel": "Jak odpowiedzieć",
+    "form.helpText": "Nie szukaj idealnej odpowiedzi. Wybierz liczbę, która teraz wydaje się najbardziej trafna.",
+    "form.save": "Zapisz odpowiedź",
     "chart.title": "Oceny z ostatnich 7 dni",
     "chart.ariaLabel": "Wykres ocen z ostatnich 7 dni",
     "chart.empty": "Brak danych z ostatniego tygodnia.",
@@ -178,6 +198,7 @@ const I18N: Record<Locale, I18nDict> = {
     "status.generatingChart": "Generating chart for the last week...",
     "status.chartUpdated": "Chart updated.",
     "status.localApiUnavailable": "Local API is unavailable. Start the Bun backend.",
+    "status.indexedDbUnavailable": "IndexedDB is unavailable in this browser.",
     "status.appInstalled": "The app is already installed.",
     "status.installAccepted": "Installation started.",
     "status.installDismissed": "Installation was dismissed.",
@@ -194,17 +215,26 @@ const I18N: Record<Locale, I18nDict> = {
     "status.pushSetupFailed": "Failed to configure push notifications.",
     "status.pushSyncFailed": "Failed to sync reminder settings to the server.",
     "tabs.ariaLabel": "App views",
-    "tabs.entry": "Add rating",
-    "tabs.week": "Last week",
+    "tabs.entry": "Log today",
+    "tabs.week": "Past week",
     "tabs.settings": "Settings",
     "menu.toggle": "Open menu",
     "menu.theme": "Theme",
     "menu.account": "Account",
+    "backend.ariaLabel": "Data backend selection",
+    "backend.title": "Choose a data backend",
+    "backend.description": "Decide where the app should store your answers.",
+    "backend.google": "Google Sheets",
+    "backend.indexedDb": "On this device (IndexedDB)",
+    "intro.title": "About this app",
+    "intro.body": "This app helps you track daily wellbeing and (hopefully) build better habits over time.",
     "form.step": "Step 1",
     "form.title": "How was your day?",
-    "form.subtitle": "Move the slider and save a rating from 1 to 10.",
-    "form.question": "How do you rate your day? 1 - very bad day, 10 - best day in a long time",
-    "form.save": "Save rating",
+    "form.subtitle": "",
+    "form.question": "How do you rate your day?",
+    "form.helpLabel": "How to answer",
+    "form.helpText": "No need to overthink it. Pick the number that feels most accurate right now.",
+    "form.save": "Save answer",
     "chart.title": "Ratings from the last 7 days",
     "chart.ariaLabel": "Ratings chart from the last 7 days",
     "chart.empty": "No data from the last week.",
@@ -213,7 +243,7 @@ const I18N: Record<Locale, I18nDict> = {
     "theme.light": "light",
     "theme.dark": "dark",
     "theme.system": "system",
-    "install.installApp": "Install app",
+    "install.installApp": "Install as app",
     "install.installed": "Installed",
     "settings.language": "Default language",
     "settings.theme": "Default theme",

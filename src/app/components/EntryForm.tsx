@@ -1,9 +1,6 @@
 import type { JSX } from "solid-js";
 
 export function EntryForm(props: {
-  stepLabel: string;
-  title: string;
-  subtitle: string;
   label: string;
   saveLabel: string;
   value: string;
@@ -13,10 +10,6 @@ export function EntryForm(props: {
   return (
     <section id="entry-view" class="view">
       <form id="rating-form" class="card card-eval" autocomplete="off" onSubmit={props.onSubmit}>
-        <p class="step-label">{props.stepLabel}</p>
-        <h2 class="form-title">{props.title}</h2>
-        <p class="form-subtitle">{props.subtitle}</p>
-
         <label id="rating-label" for="rating" class="label">
           {props.label}
         </label>

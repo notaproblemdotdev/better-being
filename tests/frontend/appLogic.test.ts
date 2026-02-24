@@ -34,8 +34,8 @@ test("boot failure status mapping keeps adapter-specific messaging", () => {
     isError: true,
   });
 
-  expect(resolveInitFailureStatus("local_api", new Error("offline"))).toEqual({
-    key: "status.localApiUnavailable",
+  expect(resolveInitFailureStatus("indexeddb", new Error("unsupported"))).toEqual({
+    key: "status.indexedDbUnavailable",
     isError: true,
   });
 
