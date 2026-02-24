@@ -1114,6 +1114,7 @@ export function App() {
               settingsLabel={t("tabs.settings")}
               entryDisabled={!isReady()}
               weekDisabled={!isReady()}
+              showInstall={!isInstalled()}
               installLabel={isInstalled() ? t("install.installed") : t("install.installApp")}
               installDisabled={isInstalled()}
               onLocaleChange={(event) => {
@@ -1128,6 +1129,7 @@ export function App() {
               onInstall={() => {
                 void handleInstall();
               }}
+              onTitleClick={handleEntryTab}
               onEntryClick={handleEntryTab}
               onWeekClick={handleWeekTab}
               onSettingsClick={handleSettingsTab}
@@ -1142,7 +1144,6 @@ export function App() {
 
             <EntryForm
               visible={activeRoute() === "record-this-moment"}
-              title={t("form.title")}
               wordsLabel={t("form.words")}
               wordsPlaceholder={t("form.wordsPlaceholder")}
               wordCountLabel={t("form.wordCount")}

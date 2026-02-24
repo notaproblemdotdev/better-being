@@ -4,7 +4,6 @@ type IntensityKey = "energy" | "stress" | "anxiety" | "joy";
 
 export function EntryForm(props: {
   visible: boolean;
-  title: string;
   wordsLabel: string;
   wordsPlaceholder: string;
   wordCountLabel: string;
@@ -37,8 +36,6 @@ export function EntryForm(props: {
   return (
     <section id="entry-view" class={`view${props.visible ? "" : " hidden"}`}>
       <form id="checkin-form" class="card card-checkin" autocomplete="off" onSubmit={props.onSubmit}>
-        <p class="label">{props.title}</p>
-
         <section class="checkin-section">
           <label for="mood-words" class="label-sm">
             {props.wordsLabel}

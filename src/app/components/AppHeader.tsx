@@ -22,11 +22,13 @@ export function AppHeader(props: {
   entryDisabled: boolean;
   weekDisabled: boolean;
   installLabel: string;
+  showInstall: boolean;
   installDisabled: boolean;
   onLocaleChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onThemeChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onSignIn: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onInstall: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+  onTitleClick: JSX.EventHandler<HTMLHeadingElement, MouseEvent>;
   onEntryClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onWeekClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onSettingsClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
@@ -73,13 +75,31 @@ export function AppHeader(props: {
     <header class="top">
       <div class="top-main">
         <div class="title-with-page">
-          <h1 id="title">{props.t("app.title")}</h1>
+          <h1 id="title" onClick={props.onTitleClick}>
+            {props.t("app.title")}
+          </h1>
           <span class="page-name">{props.pageLabel}</span>
         </div>
         <div class="top-actions-right">
-          <button id="install-app" class="btn" type="button" disabled={props.installDisabled} onClick={props.onInstall}>
-            {props.installLabel}
-          </button>
+          <Show when={props.showInstall}>
+            <button
+              id="install-app"
+              class="btn"
+              type="button"
+              aria-label={props.installLabel}
+              disabled={props.installDisabled}
+              onClick={props.onInstall}
+            >
+              <span class="install-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M12 3v10" />
+                  <path d="m8 9 4 4 4-4" />
+                  <path d="M4 15v4h16v-4" />
+                </svg>
+              </span>
+              <span class="install-label">{props.installLabel}</span>
+            </button>
+          </Show>
           <button
             id="menu-toggle"
             class="btn menu-toggle"

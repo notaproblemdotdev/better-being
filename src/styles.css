@@ -152,7 +152,7 @@ body {
 
 .title-with-page {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.65rem;
 }
 
@@ -162,6 +162,10 @@ h1 {
   line-height: 0.95;
   letter-spacing: 0.01em;
   font-weight: 800;
+}
+
+.top #title {
+  cursor: pointer;
 }
 
 .page-name {
@@ -247,6 +251,25 @@ select {
   background: linear-gradient(145deg, #15446d, #1f5a8a);
   border-color: rgba(137, 192, 237, 0.32);
   color: #f3f9ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+#install-app .install-icon {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+}
+
+#install-app .install-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .top-menu {
@@ -1154,6 +1177,12 @@ input[type="time"] {
     align-items: center;
   }
 
+  .title-with-page {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
   h1 {
     width: auto;
     margin-bottom: 0;
@@ -1163,6 +1192,18 @@ input[type="time"] {
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: clamp(1.9rem, 9vw, 2.6rem);
+  }
+
+  .top #title {
+    max-width: 7ch;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 0.9;
+  }
+
+  .page-name {
+    line-height: 1.05;
   }
 
   .top-actions-right {
@@ -1176,8 +1217,15 @@ input[type="time"] {
   }
 
   #install-app {
-    width: auto;
-    max-width: min(42vw, 11rem);
+    width: 2.85rem;
+    min-width: 2.85rem;
+    max-width: 2.85rem;
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  #install-app .install-label {
+    display: none;
   }
 
   .menu-toggle {
@@ -1234,8 +1282,9 @@ input[type="time"] {
   }
 
   #install-app {
-    max-width: min(38vw, 9.5rem);
-    padding-inline: 0.8rem;
+    width: 2.7rem;
+    min-width: 2.7rem;
+    max-width: 2.7rem;
   }
 
   .tabs {
