@@ -1,5 +1,5 @@
 import { render } from "solid-js/web";
-import { Router } from "@solidjs/router";
+import { Route, Router } from "@solidjs/router";
 import { registerSW } from "virtual:pwa-register";
 import { App } from "./app/App";
 import "./styles.css";
@@ -12,7 +12,7 @@ if (!app) {
 render(
   () => (
     <Router>
-      <App />
+      <Route path="/*" component={App} />
     </Router>
   ),
   app,

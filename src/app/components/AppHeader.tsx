@@ -15,8 +15,7 @@ export function AppHeader(props: {
   showSignIn: boolean;
   signInLabel: string;
   signInDisabled: boolean;
-  activeTab: "hello" | "entry" | "week" | "settings";
-  helloLabel: string;
+  activeTab: "entry" | "week" | "settings" | "hello";
   entryLabel: string;
   weekLabel: string;
   settingsLabel: string;
@@ -28,7 +27,6 @@ export function AppHeader(props: {
   onThemeChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onSignIn: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onInstall: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
-  onHelloClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onEntryClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onWeekClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onSettingsClick: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
@@ -111,17 +109,6 @@ export function AppHeader(props: {
           <div class="menu-item">
             <span class="menu-label">{props.t("tabs.ariaLabel")}</span>
             <div class="menu-nav">
-              <button
-                id="menu-tab-hello"
-                class={`btn${props.activeTab === "hello" ? " tab-active" : ""}`}
-                type="button"
-                onClick={(event) => {
-                  props.onHelloClick(event);
-                  setMenuOpen(false);
-                }}
-              >
-                {props.helloLabel}
-              </button>
               <button
                 id="menu-tab-entry"
                 class={`btn${props.activeTab === "entry" ? " tab-active" : ""}`}

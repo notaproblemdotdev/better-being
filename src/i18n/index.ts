@@ -38,9 +38,11 @@ export type I18nKey =
   | "status.reminderPermissionNeeded"
   | "status.reminderPermissionGranted"
   | "status.reminderPermissionDenied"
+  | "status.reminderPermissionManagedByBrowser"
   | "status.reminderNotificationsUnsupported"
   | "status.pushSetupFailed"
   | "status.pushSyncFailed"
+  | "status.storageLocationUpdated"
   | "tabs.ariaLabel"
   | "tabs.entry"
   | "tabs.week"
@@ -81,6 +83,7 @@ export type I18nKey =
   | "install.installed"
   | "settings.language"
   | "settings.theme"
+  | "settings.storageLocation"
   | "settings.reminderEnabled"
   | "settings.reminderTime"
   | "settings.reminderPermission"
@@ -135,9 +138,11 @@ const I18N: Record<Locale, I18nDict> = {
     "status.reminderPermissionNeeded": "Przypomnienie jest gotowe, ale przeglądarka blokuje powiadomienia.",
     "status.reminderPermissionGranted": "Powiadomienia o przypomnieniach są włączone.",
     "status.reminderPermissionDenied": "Powiadomienia o przypomnieniach są zablokowane.",
+    "status.reminderPermissionManagedByBrowser": "Aby wyłączyć powiadomienia, użyj ustawień przeglądarki dla tej strony.",
     "status.reminderNotificationsUnsupported": "Ta przeglądarka nie obsługuje powiadomień systemowych.",
     "status.pushSetupFailed": "Nie udało się skonfigurować powiadomień push.",
     "status.pushSyncFailed": "Nie udało się zapisać ustawień przypomnienia na serwerze.",
+    "status.storageLocationUpdated": "Zaktualizowano miejsce zapisu danych.",
     "tabs.ariaLabel": "Widoki aplikacji",
     "tabs.entry": "Dzisiaj",
     "tabs.week": "Ostatnie dni",
@@ -178,6 +183,7 @@ const I18N: Record<Locale, I18nDict> = {
     "install.installed": "Zainstalowano",
     "settings.language": "Domyślny język",
     "settings.theme": "Domyślny motyw",
+    "settings.storageLocation": "Miejsce zapisu danych",
     "settings.reminderEnabled": "Przypominaj o podsumowaniu dnia",
     "settings.reminderTime": "Godzina przypomnienia",
     "settings.reminderPermission": "Powiadomienia przeglądarki",
@@ -225,9 +231,11 @@ const I18N: Record<Locale, I18nDict> = {
     "status.reminderPermissionNeeded": "Reminder is due, but browser notifications are blocked.",
     "status.reminderPermissionGranted": "Reminder notifications are enabled.",
     "status.reminderPermissionDenied": "Reminder notifications are blocked.",
+    "status.reminderPermissionManagedByBrowser": "To disable notifications, use your browser site settings.",
     "status.reminderNotificationsUnsupported": "This browser does not support system notifications.",
     "status.pushSetupFailed": "Failed to configure push notifications.",
     "status.pushSyncFailed": "Failed to sync reminder settings to the server.",
+    "status.storageLocationUpdated": "Storage location updated.",
     "tabs.ariaLabel": "App views",
     "tabs.entry": "Log today",
     "tabs.week": "Past week",
@@ -268,6 +276,7 @@ const I18N: Record<Locale, I18nDict> = {
     "install.installed": "Installed",
     "settings.language": "Default language",
     "settings.theme": "Default theme",
+    "settings.storageLocation": "Data storage location",
     "settings.reminderEnabled": "Remind me to log my day",
     "settings.reminderTime": "Reminder time",
     "settings.reminderPermission": "Browser notifications",

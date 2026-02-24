@@ -132,6 +132,9 @@ export function App() {
   );
   const [pushSubscription, setPushSubscription] = createSignal<PushSubscription | null>(null);
   const [selectedBackend, setSelectedBackend] = createSignal<DataBackend | null>(resolveDataBackend(getEnvVar("VITE_DATA_BACKEND")));
+  const [settingsBackendDraft, setSettingsBackendDraft] = createSignal<DataBackend | null>(null);
+  const [settingsGoogleSignInEnabled, setSettingsGoogleSignInEnabled] = createSignal(false);
+  const [settingsGoogleAdapter, setSettingsGoogleAdapter] = createSignal<RatingsStoreAdapter | null>(null);
   const [backendDraft, setBackendDraft] = createSignal<DataBackend>("google");
   const [gateGoogleReady, setGateGoogleReady] = createSignal(false);
   const [gateGoogleSignInEnabled, setGateGoogleSignInEnabled] = createSignal(false);
@@ -141,6 +144,7 @@ export function App() {
   let nextToastId = 1;
   let bootSequence = 0;
   let gateBootSequence = 0;
+  let settingsGoogleBootSequence = 0;
 
   const pushApiBaseUrl = getEnvVar("VITE_PUSH_API_BASE_URL") ?? getEnvVar("VITE_LOCAL_API_BASE_URL") ?? "";
   const t = (key: I18nKey, vars?: Record<string, string>) => {
@@ -350,6 +354,38 @@ export function App() {
     }
   }
 
+  async function initSettingsGoogleAuth(sequence: number): Promise<void> {
+    const isStale = (): boolean => sequence !== settingsGoogleBootSequence || settingsBackendDraft() !== "google" || selectedBackend() !== "indexeddb";
+    const draftAdapter = createAdapter("google");
+    setSettingsGoogleAdapter(draftAdapter);
+    setSettingsGoogleSignInEnabled(false);
+
+    try {
+      await draftAdapter.init();
+      if (isStale()) {
+        return;
+      }
+
+      if (draftAdapter.getAuthState() === "connected") {
+        handleBackendSelection("google");
+        setSettingsBackendDraft(null);
+        setSettingsGoogleAdapter(null);
+        setStatus(t("status.storageLocationUpdated"));
+        return;
+      }
+
+      setSettingsGoogleSignInEnabled(true);
+    } catch (error) {
+      if (isStale()) {
+        return;
+      }
+      console.error(error);
+      const failure = resolveInitFailureStatus("google", error);
+      setStatus(t(failure.key), failure.isError);
+      setSettingsGoogleSignInEnabled(false);
+    }
+  }
+
   onMount(() => {
     if (!selectedBackend()) {
       const storedBackend = resolveDataBackend(readCookie(BACKEND_COOKIE_NAME) ?? undefined);
@@ -466,6 +502,14 @@ export function App() {
   });
 
   createEffect(() => {
+    if (selectedBackend() !== "indexeddb" && settingsBackendDraft() !== null) {
+      setSettingsBackendDraft(null);
+      setSettingsGoogleAdapter(null);
+      setSettingsGoogleSignInEnabled(false);
+    }
+  });
+
+  createEffect(() => {
     if (!isKnownPathname(location.pathname)) {
       navigate("/hello", { replace: true });
     }
@@ -504,10 +548,6 @@ export function App() {
       void generateWeeklyChartOnDemand();
     }
   });
-
-  const handleHelloTab = (): void => {
-    navigateToRoute("hello");
-  };
 
   const handleEntryTab = (): void => {
     navigateToRoute("log-today");
@@ -582,6 +622,66 @@ export function App() {
   const handleReminderTimeChange = (event: Event): void => {
     const input = event.currentTarget as HTMLInputElement;
     syncReminderSettings(reminderEnabled(), input.value);
+  };
+
+  const handleNotificationsEnabledChange = (event: Event): void => {
+    const input = event.currentTarget as HTMLInputElement;
+    if (input.checked) {
+      void handleRequestReminderPermission();
+      return;
+    }
+
+    if (notificationPermission() === "granted") {
+      setStatus(t("status.reminderPermissionManagedByBrowser"), true);
+    }
+  };
+
+  const handleStorageBackendChange = (event: Event): void => {
+    const select = event.currentTarget as HTMLSelectElement;
+    const nextBackend = resolveDataBackend(select.value);
+    if (!nextBackend) {
+      return;
+    }
+
+    if (nextBackend === "indexeddb") {
+      setSettingsBackendDraft(null);
+      setSettingsGoogleAdapter(null);
+      setSettingsGoogleSignInEnabled(false);
+      if (selectedBackend() !== "indexeddb") {
+        handleBackendSelection("indexeddb");
+        setStatus(t("status.storageLocationUpdated"));
+      }
+      return;
+    }
+
+    if (selectedBackend() === "google") {
+      setSettingsBackendDraft(null);
+      return;
+    }
+
+    setSettingsBackendDraft("google");
+    settingsGoogleBootSequence += 1;
+    void initSettingsGoogleAuth(settingsGoogleBootSequence);
+  };
+
+  const handleStorageGoogleSignIn = async (): Promise<void> => {
+    const draftAdapter = settingsGoogleAdapter();
+    if (!draftAdapter?.requestSignIn || settingsBackendDraft() !== "google") {
+      return;
+    }
+
+    setStatus(t("status.openingGoogleLogin"));
+    try {
+      await draftAdapter.requestSignIn();
+      handleBackendSelection("google");
+      setSettingsBackendDraft(null);
+      setSettingsGoogleAdapter(null);
+      setSettingsGoogleSignInEnabled(false);
+      setStatus(t("status.storageLocationUpdated"));
+    } catch (error) {
+      console.error(error);
+      setStatus(t("status.authRejected"), true);
+    }
   };
 
   const handleRequestReminderPermission = async (): Promise<void> => {
@@ -727,7 +827,6 @@ export function App() {
               signInLabel={t(resolveSignInLabelKey(isReady()))}
               signInDisabled={isReady() || !signInEnabled()}
               activeTab={routeToTab(activeRoute())}
-              helloLabel="Hello"
               entryLabel={t("tabs.entry")}
               weekLabel={t("tabs.week")}
               settingsLabel={t("tabs.settings")}
@@ -747,7 +846,6 @@ export function App() {
               onInstall={() => {
                 void handleInstall();
               }}
-              onHelloClick={handleHelloTab}
               onEntryClick={handleEntryTab}
               onWeekClick={handleWeekTab}
               onSettingsClick={handleSettingsTab}
@@ -786,10 +884,16 @@ export function App() {
               visible={activeRoute() === "settings"}
               languageLabel={t("settings.language")}
               themeLabel={t("settings.theme")}
+              storageLocationLabel={t("settings.storageLocation")}
+              storageGoogleLabel={t("backend.google")}
+              storageIndexedDbLabel={t("backend.indexedDb")}
+              storageHelpText={(settingsBackendDraft() ?? selectedBackend()) === "google" ? t("backend.storageNoteGoogle") : t("backend.storageNoteIndexedDb")}
+              storageGoogleSignInLabel={t("auth.signIn")}
+              showStorageGoogleSignIn={settingsBackendDraft() === "google" && selectedBackend() !== "google"}
+              storageGoogleSignInDisabled={!settingsGoogleSignInEnabled()}
               reminderEnabledLabel={t("settings.reminderEnabled")}
               reminderTimeLabel={t("settings.reminderTime")}
               reminderPermissionLabel={t("settings.reminderPermission")}
-              reminderPermissionActionLabel={t("settings.reminderPermissionAction")}
               reminderPermissionStateLabel={permissionStateLabel()}
               themeOptionLightLabel={t("theme.light")}
               themeOptionDarkLabel={t("theme.dark")}
@@ -797,20 +901,25 @@ export function App() {
               locale={locale()}
               supportedLocales={SUPPORTED_LOCALES}
               themePreference={themePreference()}
+              storageBackend={selectedBackend() ?? "google"}
+              storageBackendValue={settingsBackendDraft() ?? selectedBackend() ?? "google"}
               reminderEnabled={reminderEnabled()}
               reminderTime={reminderTime()}
-              showNotificationPermissionAction={notificationPermission() !== "unsupported" && notificationPermission() !== "granted"}
+              notificationsEnabled={notificationPermission() === "granted"}
+              notificationsUnsupported={notificationPermission() === "unsupported"}
               onLocaleChange={(event) => {
                 void handleLocaleChange(event);
               }}
               onThemePreferenceChange={(event) => {
                 void handleThemePreferenceChange(event);
               }}
+              onStorageBackendChange={handleStorageBackendChange}
+              onStorageGoogleSignIn={() => {
+                void handleStorageGoogleSignIn();
+              }}
               onReminderEnabledChange={handleReminderEnabledChange}
               onReminderTimeChange={handleReminderTimeChange}
-              onRequestReminderPermission={() => {
-                void handleRequestReminderPermission();
-              }}
+              onNotificationsEnabledChange={handleNotificationsEnabledChange}
             />
           </>
         }
