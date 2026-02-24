@@ -86,12 +86,25 @@ body {
   flex-wrap: wrap;
 }
 
+.title-with-page {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
 h1 {
   margin: 0;
   font-size: clamp(2.1rem, 4vw, 3rem);
   line-height: 0.95;
   letter-spacing: 0.01em;
   font-weight: 800;
+}
+
+.page-name {
+  color: var(--muted);
+  font-size: clamp(0.95rem, 1.7vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .top-actions-right {
@@ -320,6 +333,16 @@ select {
   justify-self: center;
 }
 
+#week-view {
+  width: min(100%, 840px);
+  justify-self: center;
+}
+
+#settings-view {
+  width: min(100%, 560px);
+  justify-self: center;
+}
+
 .hidden {
   display: none;
 }
@@ -361,30 +384,151 @@ select {
 }
 
 .backend-gate {
-  width: min(680px, 100%);
+  width: min(700px, 100%);
   margin-inline: auto;
   text-align: center;
-  gap: 1rem;
+  gap: 0.7rem;
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  border-color: color-mix(in srgb, var(--line) 86%, var(--accent) 14%);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--panel) 95%, transparent),
+    color-mix(in srgb, var(--panel-soft) 88%, transparent)
+  );
+}
+
+.backend-gate-brand {
+  margin: 0;
+  font-size: clamp(1.8rem, 4.2vw, 2.55rem);
+  line-height: 1;
 }
 
 .backend-gate-title {
-  margin: 0;
-  font-size: clamp(1.35rem, 2.9vw, 1.9rem);
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.65rem);
+  line-height: 1.15;
 }
 
 .backend-gate-description {
-  margin: 0;
+  margin: 0.35rem auto 0;
+  max-width: 32ch;
   color: var(--muted);
+  line-height: 1.45;
 }
 
-.backend-gate-options {
+.backend-gate-radios {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
+  gap: 0.6rem;
 }
 
-.backend-gate-options .btn {
-  min-height: 3rem;
+.backend-gate-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.backend-radio {
+  min-height: 2.95rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-soft) 94%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.backend-radio input[type="radio"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.backend-radio:has(input:checked) {
+  border-color: transparent;
+  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  color: #f6fbff;
+  box-shadow: 0 9px 22px rgba(26, 120, 191, 0.26);
+}
+
+.backend-radio:has(input:checked) .backend-help {
+  border-color: color-mix(in srgb, #ffffff 60%, transparent);
+  color: #f6fbff;
+  background: color-mix(in srgb, #ffffff 18%, transparent);
+}
+
+.backend-confirm {
+  min-height: 2.95rem;
+  margin-top: 0.75rem;
+}
+
+.backend-google-signin {
+  min-height: 2.85rem;
+  margin-top: 0.35rem;
+}
+
+.backend-privacy-note {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.backend-help {
+  position: relative;
+  display: inline-flex;
+  width: 1.8rem;
+  height: 1.8rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: help;
+}
+
+.backend-help-tooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  width: min(260px, calc(100vw - 2.5rem));
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.backend-help:hover .backend-help-tooltip,
+.backend-help:focus-visible .backend-help-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .label {
@@ -437,7 +581,7 @@ select {
 }
 
 #settings-view .card {
-  max-width: 560px;
+  max-width: 100%;
 }
 
 #settings-view .label {
@@ -521,7 +665,7 @@ input[type="time"] {
     align-items: stretch;
   }
 
-  .backend-gate-options {
+  .backend-gate-radios {
     grid-template-columns: 1fr;
   }
 

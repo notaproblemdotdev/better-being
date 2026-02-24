@@ -76,10 +76,15 @@ export function App() {
   );
   const [pushSubscription, setPushSubscription] = createSignal<PushSubscription | null>(null);
   const [selectedBackend, setSelectedBackend] = createSignal<DataBackend | null>(resolveDataBackend(getEnvVar("VITE_DATA_BACKEND")));
+  const [backendDraft, setBackendDraft] = createSignal<DataBackend>("google");
+  const [gateGoogleReady, setGateGoogleReady] = createSignal(false);
+  const [gateGoogleSignInEnabled, setGateGoogleSignInEnabled] = createSignal(false);
+  const [gateGoogleAdapter, setGateGoogleAdapter] = createSignal<RatingsStoreAdapter | null>(null);
   const [adapter, setAdapter] = createSignal<RatingsStoreAdapter | null>(null);
   const toastTimeouts = new Map<number, number>();
   let nextToastId = 1;
   let bootSequence = 0;
+  let gateBootSequence = 0;
 
   const pushApiBaseUrl = getEnvVar("VITE_PUSH_API_BASE_URL") ?? getEnvVar("VITE_LOCAL_API_BASE_URL") ?? "";
   const t = (key: I18nKey, vars?: Record<string, string>) => {
@@ -258,11 +263,44 @@ export function App() {
     }
   }
 
+  async function initGateGoogleAuth(sequence: number): Promise<void> {
+    const isStale = (): boolean => sequence !== gateBootSequence || selectedBackend() !== null || backendDraft() !== "google";
+    const draftAdapter = createAdapter("google");
+    setGateGoogleAdapter(draftAdapter);
+    setGateGoogleReady(false);
+    setGateGoogleSignInEnabled(false);
+
+    try {
+      await draftAdapter.init();
+      if (isStale()) {
+        return;
+      }
+
+      if (draftAdapter.getAuthState() === "connected") {
+        setGateGoogleReady(true);
+        setGateGoogleSignInEnabled(false);
+        return;
+      }
+
+      setGateGoogleSignInEnabled(true);
+    } catch (error) {
+      if (isStale()) {
+        return;
+      }
+      console.error(error);
+      const failure = resolveInitFailureStatus("google", error);
+      setStatus(t(failure.key), failure.isError);
+      setGateGoogleSignInEnabled(false);
+    }
+  }
+
   onMount(() => {
     if (!selectedBackend()) {
       const storedBackend = resolveDataBackend(readCookie(BACKEND_COOKIE_NAME) ?? undefined);
       if (storedBackend) {
         setSelectedBackend(storedBackend);
+      } else {
+        setBackendDraft("google");
       }
     }
 
@@ -352,6 +390,23 @@ export function App() {
     setIsReady(false);
     setSignInEnabled(false);
     void boot(nextAdapter, backend, sequence);
+  });
+
+  createEffect(() => {
+    if (selectedBackend() !== null) {
+      return;
+    }
+
+    if (backendDraft() !== "google") {
+      setGateGoogleAdapter(null);
+      setGateGoogleReady(false);
+      setGateGoogleSignInEnabled(false);
+      return;
+    }
+
+    gateBootSequence += 1;
+    const sequence = gateBootSequence;
+    void initGateGoogleAuth(sequence);
   });
 
   const handleSignIn = async (): Promise<void> => {
@@ -521,6 +576,38 @@ export function App() {
     setCookie(BACKEND_COOKIE_NAME, backend, 31536000);
   };
 
+  const handleGateGoogleSignIn = async (): Promise<void> => {
+    const draftAdapter = gateGoogleAdapter();
+    if (!draftAdapter?.requestSignIn) {
+      return;
+    }
+
+    setStatus(t("status.openingGoogleLogin"));
+    try {
+      await draftAdapter.requestSignIn();
+      setGateGoogleReady(true);
+      setGateGoogleSignInEnabled(false);
+      setStatus(t("status.connected"), false, false);
+    } catch (error) {
+      console.error(error);
+      setStatus(t("status.authRejected"), true);
+    }
+  };
+
+  const isBackendConfirmEnabled = (): boolean => {
+    if (backendDraft() === "indexeddb") {
+      return true;
+    }
+    return gateGoogleReady();
+  };
+
+  const handleConfirmBackendSelection = (): void => {
+    if (!isBackendConfirmEnabled()) {
+      return;
+    }
+    handleBackendSelection(backendDraft());
+  };
+
   const permissionStateLabel = (): string => {
     if (notificationPermission() === "unsupported") {
       return t("settings.notificationsUnsupported");
@@ -545,6 +632,7 @@ export function App() {
               supportedLocales={SUPPORTED_LOCALES}
               t={t}
               theme={theme()}
+              pageLabel={activeTab() === "entry" ? t("tabs.entry") : activeTab() === "week" ? t("tabs.week") : t("tabs.settings")}
               isConnected={isReady()}
               showSignIn={!isReady()}
               signInLabel={t(resolveSignInLabelKey(isReady()))}
@@ -577,6 +665,7 @@ export function App() {
             />
 
             <EntryForm
+              visible={activeTab() === "entry"}
               label={t("form.question")}
               saveLabel={t("form.save")}
               value={ratingValue()}
@@ -631,17 +720,67 @@ export function App() {
         }
       >
         <section class="card backend-gate" aria-label={t("backend.ariaLabel")}>
-          <h1 id="title">{t("app.title")}</h1>
+          <h1 id="title" class="backend-gate-brand">{t("app.title")}</h1>
           <h2 class="backend-gate-title">{t("backend.title")}</h2>
           <p class="backend-gate-description">{t("backend.description")}</p>
-          <div class="backend-gate-options">
-            <button class="btn btn-primary" type="button" onClick={() => handleBackendSelection("google")}>
-              {t("backend.google")}
+          <fieldset class="backend-gate-radios">
+            <legend class="backend-gate-legend">{t("backend.ariaLabel")}</legend>
+            <label class="backend-radio">
+              <input
+                type="radio"
+                name="backend"
+                value="google"
+                checked={backendDraft() === "google"}
+                onChange={() => setBackendDraft("google")}
+              />
+              <span>{t("backend.google")}</span>
+              <span class="backend-help" tabindex="0" aria-label={t("backend.googleHelpLabel")}>
+                ?
+                <span class="backend-help-tooltip" role="tooltip">
+                  {t("backend.googleHelpText")}
+                </span>
+              </span>
+            </label>
+            <label class="backend-radio">
+              <input
+                type="radio"
+                name="backend"
+                value="indexeddb"
+                checked={backendDraft() === "indexeddb"}
+                onChange={() => setBackendDraft("indexeddb")}
+              />
+              <span>{t("backend.indexedDb")}</span>
+              <span class="backend-help" tabindex="0" aria-label={t("backend.indexedDbHelpLabel")}>
+                ?
+                <span class="backend-help-tooltip" role="tooltip">
+                  {t("backend.indexedDbHelpText")}
+                </span>
+              </span>
+            </label>
+          </fieldset>
+          <Show when={backendDraft() === "google"}>
+            <button
+              class="btn backend-google-signin"
+              type="button"
+              disabled={!gateGoogleReady() && !gateGoogleSignInEnabled()}
+              onClick={() => {
+                void handleGateGoogleSignIn();
+              }}
+            >
+              {t(resolveSignInLabelKey(gateGoogleReady()))}
             </button>
-            <button class="btn" type="button" onClick={() => handleBackendSelection("indexeddb")}>
-              {t("backend.indexedDb")}
-            </button>
-          </div>
+          </Show>
+          <button
+            class="btn btn-primary backend-confirm"
+            type="button"
+            disabled={!isBackendConfirmEnabled()}
+            onClick={handleConfirmBackendSelection}
+          >
+            {t("backend.confirm")}
+          </button>
+          <p class="backend-privacy-note">
+            {backendDraft() === "google" ? t("backend.storageNoteGoogle") : t("backend.storageNoteIndexedDb")}
+          </p>
         </section>
       </Show>
 

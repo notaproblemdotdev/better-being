@@ -53,6 +53,13 @@ export type I18nKey =
   | "backend.description"
   | "backend.google"
   | "backend.indexedDb"
+  | "backend.confirm"
+  | "backend.googleHelpLabel"
+  | "backend.googleHelpText"
+  | "backend.indexedDbHelpLabel"
+  | "backend.indexedDbHelpText"
+  | "backend.storageNoteGoogle"
+  | "backend.storageNoteIndexedDb"
   | "intro.title"
   | "intro.body"
   | "form.step"
@@ -141,8 +148,15 @@ const I18N: Record<Locale, I18nDict> = {
     "backend.ariaLabel": "Wybór źródła danych",
     "backend.title": "Wybierz backend danych",
     "backend.description": "Zdecyduj, gdzie aplikacja ma zapisywać Twoje odpowiedzi.",
-    "backend.google": "Google Sheets",
-    "backend.indexedDb": "Lokalnie (IndexedDB)",
+    "backend.google": "Twój arkusz Google na Dysku Google",
+    "backend.indexedDb": "Lokalnie",
+    "backend.confirm": "Potwierdź wybór",
+    "backend.googleHelpLabel": "Informacje o Google Sheets",
+    "backend.googleHelpText": "Zostaniesz poproszony o logowanie do konta Google, a arkusz „betterbeing” zostanie utworzony automatycznie.",
+    "backend.indexedDbHelpLabel": "Informacje o IndexedDB",
+    "backend.indexedDbHelpText": "Dane są zapisywane lokalnie w tej przeglądarce i na tym urządzeniu.",
+    "backend.storageNoteGoogle": "Dane będą zapisywane na Twoim Dysku Google w arkuszu Google o nazwie „beingbetter”.",
+    "backend.storageNoteIndexedDb": "Dane będą zapisywane lokalnie na Twoim urządzeniu, w przeglądarce.",
     "intro.title": "O aplikacji",
     "intro.body": "To aplikacja do codziennego śledzenia samopoczucia i budowania lepszych nawyków.",
     "form.step": "Krok 1",
@@ -224,8 +238,15 @@ const I18N: Record<Locale, I18nDict> = {
     "backend.ariaLabel": "Data backend selection",
     "backend.title": "Choose a data backend",
     "backend.description": "Decide where the app should store your answers.",
-    "backend.google": "Google Sheets",
-    "backend.indexedDb": "On this device (IndexedDB)",
+    "backend.google": "Your Google Sheet on Google Drive",
+    "backend.indexedDb": "On this device",
+    "backend.confirm": "Confirm selection",
+    "backend.googleHelpLabel": "Google Sheets info",
+    "backend.googleHelpText": "You will be prompted to sign in to your Google account, and the \"betterbeing\" Google Sheet will be created.",
+    "backend.indexedDbHelpLabel": "IndexedDB information",
+    "backend.indexedDbHelpText": "Data is stored locally in this browser on this device.",
+    "backend.storageNoteGoogle": "Data will be stored on your Google Drive in a Google Sheet called \"beingbetter\".",
+    "backend.storageNoteIndexedDb": "Data will be stored locally on your device, in the browser.",
     "intro.title": "About this app",
     "intro.body": "This app helps you track daily wellbeing and (hopefully) build better habits over time.",
     "form.step": "Step 1",

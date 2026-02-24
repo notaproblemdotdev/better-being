@@ -1,6 +1,7 @@
 import type { JSX } from "solid-js";
 
 export function EntryForm(props: {
+  visible: boolean;
   label: string;
   saveLabel: string;
   value: string;
@@ -8,7 +9,7 @@ export function EntryForm(props: {
   onSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent>;
 }): JSX.Element {
   return (
-    <section id="entry-view" class="view">
+    <section id="entry-view" class={`view${props.visible ? "" : " hidden"}`}>
       <form id="rating-form" class="card card-eval" autocomplete="off" onSubmit={props.onSubmit}>
         <label id="rating-label" for="rating" class="label">
           {props.label}

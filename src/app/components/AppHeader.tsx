@@ -10,6 +10,7 @@ export function AppHeader(props: {
   supportedLocales: Locale[];
   t: Translator;
   theme: Theme;
+  pageLabel: string;
   isConnected: boolean;
   showSignIn: boolean;
   signInLabel: string;
@@ -71,7 +72,10 @@ export function AppHeader(props: {
   return (
     <header class="top">
       <div class="top-main">
-        <h1 id="title">{props.t("app.title")}</h1>
+        <div class="title-with-page">
+          <h1 id="title">{props.t("app.title")}</h1>
+          <span class="page-name">{props.pageLabel}</span>
+        </div>
         <div class="top-actions-right">
           <button id="install-app" class="btn" type="button" disabled={props.installDisabled} onClick={props.onInstall}>
             {props.installLabel}
