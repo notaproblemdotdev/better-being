@@ -49,7 +49,7 @@ export function createPushScheduler(deps: PushDeps, config: PushConfig): { tick:
             },
           },
           JSON.stringify({
-            title: "being better",
+            title: "better-being",
             body,
             url: "/",
           }),

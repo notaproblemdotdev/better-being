@@ -35,8 +35,8 @@ export default defineConfig({
       },
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"],
       manifest: {
-        name: "being better",
-        short_name: "being better",
+        name: "better-being",
+        short_name: "better-being",
         description: "Track daily wellbeing ratings.",
         theme_color: "#1f6d8a",
         background_color: "#f4f8fb",

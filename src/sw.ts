@@ -23,7 +23,7 @@ self.addEventListener("push", (event) => {
   }
 
   const payload = (event.data.json() ?? {}) as { title?: string; body?: string; url?: string };
-  const title = payload.title ?? "being better";
+  const title = payload.title ?? "better-being";
   const body = payload.body ?? "How did your day go? Add your rating.";
   const url = payload.url ?? "/";
 

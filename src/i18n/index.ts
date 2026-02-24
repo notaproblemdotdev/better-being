@@ -163,7 +163,7 @@ export const SUPPORTED_LOCALES: Locale[] = ["pl", "en"];
 
 const I18N: Record<Locale, I18nDict> = {
   pl: {
-    "app.title": "being better",
+    "app.title": "better-being",
     "auth.signIn": "Zaloguj przez Google",
     "auth.connected": "Połączono",
     "status.waitingForLogin": "Oczekiwanie na logowanie.",
@@ -313,11 +313,11 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.notificationsGranted": "Włączone",
     "settings.notificationsDenied": "Zablokowane",
     "settings.notificationsUnsupported": "Nieobsługiwane",
-    "reminder.notificationTitle": "being better",
+    "reminder.notificationTitle": "better-being",
     "reminder.notificationBody": "Jak minął Twój dzień? Dodaj ocenę.",
   },
   en: {
-    "app.title": "being better",
+    "app.title": "better-being",
     "auth.signIn": "Sign in with Google",
     "auth.connected": "Connected",
     "status.waitingForLogin": "Waiting for sign in.",
@@ -467,7 +467,7 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.notificationsGranted": "Enabled",
     "settings.notificationsDenied": "Blocked",
     "settings.notificationsUnsupported": "Unsupported",
-    "reminder.notificationTitle": "being better",
+    "reminder.notificationTitle": "better-being",
     "reminder.notificationBody": "How did your day go? Add your rating.",
   },
 };
