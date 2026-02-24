@@ -136,7 +136,30 @@ export type I18nKey =
   | "install.installApp"
   | "install.installed"
   | "footer.description"
+  | "footer.terms"
+  | "footer.privacy"
   | "footer.github"
+  | "legal.lastUpdated"
+  | "legal.termsTitle"
+  | "legal.privacyTitle"
+  | "legal.terms.sectionUseTitle"
+  | "legal.terms.sectionUseBody"
+  | "legal.terms.sectionDataTitle"
+  | "legal.terms.sectionDataBody"
+  | "legal.terms.sectionAvailabilityTitle"
+  | "legal.terms.sectionAvailabilityBody"
+  | "legal.terms.sectionContactTitle"
+  | "legal.terms.sectionContactBody"
+  | "legal.privacy.sectionCollectedTitle"
+  | "legal.privacy.sectionCollectedBody"
+  | "legal.privacy.sectionUsageTitle"
+  | "legal.privacy.sectionUsageBody"
+  | "legal.privacy.sectionStorageTitle"
+  | "legal.privacy.sectionStorageBody"
+  | "legal.privacy.sectionRightsTitle"
+  | "legal.privacy.sectionRightsBody"
+  | "legal.privacy.sectionContactTitle"
+  | "legal.privacy.sectionContactBody"
   | "settings.language"
   | "settings.defaultPreferenceHelpLabel"
   | "settings.defaultPreferenceHelpText"
@@ -295,8 +318,40 @@ const I18N: Record<Locale, I18nDict> = {
     "theme.system": "systemowy",
     "install.installApp": "Zainstaluj aplikację",
     "install.installed": "Zainstalowano",
-    "footer.description": "Krótka aplikacja do codziennego check-inu samopoczucia i śledzenia trendów.",
+    "footer.description": "Prosta aplikacja do codziennego check-inu samopoczucia i śledzenia trendów.",
+    "footer.terms": "Regulamin",
+    "footer.privacy": "Polityka prywatności",
     "footer.github": "Zobacz na GitHubie",
+    "legal.lastUpdated": "Ostatnia aktualizacja: 24 lutego 2026",
+    "legal.termsTitle": "Regulamin",
+    "legal.privacyTitle": "Polityka prywatności",
+    "legal.terms.sectionUseTitle": "Cel aplikacji i zastrzeżenie zdrowotne",
+    "legal.terms.sectionUseBody":
+      "better being to narzędzie do autorefleksji i codziennych check-inów samopoczucia. Nie jest usługą medyczną i nie zapewnia diagnozy, leczenia, wsparcia kryzysowego ani profesjonalnej porady. W sytuacji zagrożenia skontaktuj się z lokalnymi służbami ratunkowymi lub licencjonowanym specjalistą.",
+    "legal.terms.sectionDataTitle": "Przechowywanie danych i usługi zewnętrzne",
+    "legal.terms.sectionDataBody":
+      "Ty wybierasz miejsce zapisu: tryb Google (Google OAuth, Google Drive i Google Sheets) albo tryb lokalny (IndexedDB w przeglądarce). W trybie Google obowiązują także warunki i polityki Google. Po włączeniu przypomnień push subskrypcja push oraz ustawienia przypomnienia są wysyłane do skonfigurowanego backendu push.",
+    "legal.terms.sectionAvailabilityTitle": "Dostępność, gwarancje i odpowiedzialność",
+    "legal.terms.sectionAvailabilityBody":
+      "Aplikacja jest udostępniana „as is” i może być zmieniana, wstrzymywana lub wyłączona. W maksymalnym zakresie dozwolonym przez prawo twórcy nie odpowiadają za szkody pośrednie lub następcze wynikające z używania albo braku dostępu do aplikacji. Odpowiadasz za kontrolę i kopię zapasową własnych danych.",
+    "legal.terms.sectionContactTitle": "Kontakt",
+    "legal.terms.sectionContactBody":
+      "W pytaniach dotyczących regulaminu skontaktuj się z twórcami przez profile GitHub podane w stopce lub przez e-mail: self-trade-copious@duck.com.",
+    "legal.privacy.sectionCollectedTitle": "Jakie dane są zbierane",
+    "legal.privacy.sectionCollectedBody":
+      "W zależności od wybranego trybu aplikacja zapisuje check-iny (czas, słowa nastroju, użyte podpowiedzi, opcjonalne skale intensywności i tagi kontekstu), ustawienia (język, motyw, przypomnienia, backend) oraz techniczne dane sesji w pamięci przeglądarki/cookie.",
+    "legal.privacy.sectionUsageTitle": "W jakim celu używamy danych",
+    "legal.privacy.sectionUsageBody":
+      "Dane służą wyłącznie do działania funkcji aplikacji: zapisu i odczytu check-inów, obliczania trendów, stosowania ustawień, przywracania sesji i obsługi przypomnień. Nie używamy reklam ani zewnętrznej analityki.",
+    "legal.privacy.sectionStorageTitle": "Gdzie dane są przechowywane",
+    "legal.privacy.sectionStorageBody":
+      "W trybie Google wpisy i ustawienia trafiają do Twojego arkusza „beingbetter” na Dysku Google. W trybie lokalnym wpisy pozostają w IndexedDB na urządzeniu. Jeśli skonfigurujesz backend push, metadane subskrypcji powiadomień są zapisywane w jego bazie.",
+    "legal.privacy.sectionRightsTitle": "Twoja kontrola",
+    "legal.privacy.sectionRightsBody":
+      "Masz pełną kontrolę: możesz usuwać dane z arkusza Google, wyczyścić dane witryny w przeglądarce, cofnąć dostęp aplikacji w koncie Google oraz wyłączyć przypomnienia i powiadomienia.",
+    "legal.privacy.sectionContactTitle": "Kontakt i pytania",
+    "legal.privacy.sectionContactBody":
+      "Jeśli masz pytania o prywatność, skontaktuj się z twórcą przez profil GitHub podany w stopce lub e-mail podany na publicznej stronie Polityki prywatności.",
     "settings.language": "Domyślny język",
     "settings.defaultPreferenceHelpLabel": "Informacja o ustawieniu domyślnym",
     "settings.defaultPreferenceHelpText":
@@ -450,7 +505,39 @@ const I18N: Record<Locale, I18nDict> = {
     "install.installApp": "Install as app",
     "install.installed": "Installed",
     "footer.description": "A lightweight app for daily wellbeing check-ins and trend tracking.",
+    "footer.terms": "Terms of Service",
+    "footer.privacy": "Privacy Policy",
     "footer.github": "View on GitHub",
+    "legal.lastUpdated": "Last updated: February 24, 2026",
+    "legal.termsTitle": "Terms of Service",
+    "legal.privacyTitle": "Privacy Policy",
+    "legal.terms.sectionUseTitle": "Purpose and health disclaimer",
+    "legal.terms.sectionUseBody":
+      "better being is a self-reflection tool for daily wellbeing check-ins. It is not a medical service and does not provide diagnosis, treatment, crisis support, or professional advice. If you may be in danger or need clinical support, contact local emergency services or a licensed professional.",
+    "legal.terms.sectionDataTitle": "Data storage and third-party services",
+    "legal.terms.sectionDataBody":
+      "You choose where entries are stored: Google mode (Google OAuth, Google Drive, and Google Sheets) or local mode (IndexedDB in your browser). In Google mode, your use is also subject to Google's terms and privacy policies. If push reminders are enabled, a push subscription and reminder settings are sent to the configured push backend.",
+    "legal.terms.sectionAvailabilityTitle": "Availability, warranties, and liability",
+    "legal.terms.sectionAvailabilityBody":
+      "The app is provided \"as is\" and may change, pause, or stop at any time. To the maximum extent permitted by law, maintainers are not liable for indirect or consequential losses resulting from use of or inability to use the app. You are responsible for reviewing and backing up your own data.",
+    "legal.terms.sectionContactTitle": "Contact",
+    "legal.terms.sectionContactBody":
+      "For Terms questions, contact the maintainers via the GitHub profiles in the footer or by email at self-trade-copious@duck.com.",
+    "legal.privacy.sectionCollectedTitle": "What data is collected",
+    "legal.privacy.sectionCollectedBody":
+      "Depending on your selected mode, the app stores check-ins (timestamp, mood words, suggested words used, optional intensity fields, context tags), app settings (language, theme, reminders, backend), and technical session/preferences data in browser storage and cookies.",
+    "legal.privacy.sectionUsageTitle": "How data is used",
+    "legal.privacy.sectionUsageBody":
+      "Data is used only to run app features: save and load check-ins, calculate insights, apply your settings, restore sign-in state, and handle reminders. No ads or third-party analytics are used.",
+    "legal.privacy.sectionStorageTitle": "Where data is stored",
+    "legal.privacy.sectionStorageBody":
+      "In Google mode, entries and settings are stored in your Google Drive spreadsheet named \"beingbetter\". In local mode, entries are stored in IndexedDB on your device. If a push backend is configured, notification subscription metadata is stored there.",
+    "legal.privacy.sectionRightsTitle": "Your control",
+    "legal.privacy.sectionRightsBody":
+      "You control your data. You can delete spreadsheet data, clear browser site data, revoke Google access for the app, and disable reminders/notifications at any time.",
+    "legal.privacy.sectionContactTitle": "Contact and questions",
+    "legal.privacy.sectionContactBody":
+      "If you have privacy questions, contact the maintainer via the GitHub profile in the footer or the email listed on the public Privacy Policy page.",
     "settings.language": "Default language",
     "settings.defaultPreferenceHelpLabel": "Default setting information",
     "settings.defaultPreferenceHelpText":

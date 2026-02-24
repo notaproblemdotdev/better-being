@@ -16,7 +16,7 @@ export function AppHeader(props: {
   signInLabel: string;
   accountLabel: string;
   signInDisabled: boolean;
-  activeTab: "entry" | "week" | "settings" | "hello";
+  activeTab: "entry" | "week" | "settings";
   entryLabel: string;
   weekLabel: string;
   settingsLabel: string;

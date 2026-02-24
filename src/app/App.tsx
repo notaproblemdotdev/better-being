@@ -41,7 +41,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-type AppRoute = "hello" | "record-this-moment" | "past-data" | "settings";
+type AppRoute = "record-this-moment" | "past-data" | "settings" | "terms" | "privacy";
 type IntensityKey = "energy" | "stress" | "anxiety" | "joy";
 
 const BACKEND_COOKIE_NAME = "being_better_data_backend";
@@ -113,10 +113,7 @@ function appPath(pathname: string): string {
 function routeFromPathname(pathname: string): AppRoute {
   const normalized = stripBasePath(pathname);
   if (normalized === "/") {
-    return "hello";
-  }
-  if (normalized === "/hello") {
-    return "hello";
+    return "record-this-moment";
   }
   if (normalized === "/log-today" || normalized === "/record-this-moment") {
     return "record-this-moment";
@@ -127,40 +124,55 @@ function routeFromPathname(pathname: string): AppRoute {
   if (normalized === "/settings") {
     return "settings";
   }
-  return "hello";
+  if (normalized === "/terms" || normalized === "/terms.html") {
+    return "terms";
+  }
+  if (normalized === "/privacy" || normalized === "/privacy.html") {
+    return "privacy";
+  }
+  return "record-this-moment";
 }
 
 function isKnownPathname(pathname: string): boolean {
   const normalized = stripBasePath(pathname);
   return (
     normalized === "/" ||
-    normalized === "/hello" ||
     normalized === "/log-today" ||
     normalized === "/record-this-moment" ||
     normalized === "/past-data" ||
-    normalized === "/settings"
+    normalized === "/settings" ||
+    normalized === "/terms" ||
+    normalized === "/terms.html" ||
+    normalized === "/privacy" ||
+    normalized === "/privacy.html"
   );
 }
 
 function pathForRoute(route: AppRoute): string {
-  if (route === "hello") {
-    return "/";
-  }
   if (route === "record-this-moment") {
     return "/record-this-moment";
   }
   if (route === "past-data") {
     return "/past-data";
   }
+  if (route === "terms") {
+    return "/terms";
+  }
+  if (route === "privacy") {
+    return "/privacy";
+  }
   return "/settings";
 }
 
-function routeToTab(route: AppRoute): "hello" | "entry" | "week" | "settings" {
+function routeToTab(route: AppRoute): "entry" | "week" | "settings" {
   if (route === "record-this-moment") {
     return "entry";
   }
   if (route === "past-data") {
     return "week";
+  }
+  if (route === "terms" || route === "privacy") {
+    return "settings";
   }
   return route;
 }
@@ -245,6 +257,7 @@ export function App() {
   };
 
   const wordCount = createMemo(() => splitWords(wordsInput()).length);
+  const isLegalRoute = createMemo(() => activeRoute() === "terms" || activeRoute() === "privacy");
   const activeGoogleAdapter = createMemo<RatingsStoreAdapter | null>(() => {
     if (selectedBackend() === "google") {
       return adapter();
@@ -730,12 +743,6 @@ export function App() {
   });
 
   createEffect(() => {
-    if (activeRoute() === "hello" && selectedBackend() !== null) {
-      navigate(appPath("/record-this-moment"), { replace: true });
-    }
-  });
-
-  createEffect(() => {
     if (activeRoute() === "past-data") {
       void refreshWordCloud();
     }
@@ -868,11 +875,15 @@ export function App() {
     await refreshWordCloud();
   };
 
+  const applyLocale = async (nextLocale: Locale): Promise<void> => {
+    await syncLocale(nextLocale);
+    await syncPushSettingsIfPossible(reminderEnabled(), reminderTime());
+  };
+
   const handleLocaleChange = async (event: Event): Promise<void> => {
     const select = event.currentTarget as HTMLSelectElement;
     const nextLocale = parseLocale(select.value) ?? "en";
-    await syncLocale(nextLocale);
-    await syncPushSettingsIfPossible(reminderEnabled(), reminderTime());
+    await applyLocale(nextLocale);
   };
 
   const handleThemePreferenceChange = async (event: Event): Promise<void> => {
@@ -1087,7 +1098,7 @@ export function App() {
   return (
     <main class="shell">
       <Show
-        when={selectedBackend() === null}
+        when={selectedBackend() === null && !isLegalRoute()}
         fallback={
           <>
             <AppHeader
@@ -1096,16 +1107,18 @@ export function App() {
               t={t}
               theme={theme()}
               pageLabel={
-                activeRoute() === "hello"
-                  ? "Hello"
-                  : activeRoute() === "record-this-moment"
+                activeRoute() === "record-this-moment"
                     ? t("tabs.entry")
                     : activeRoute() === "past-data"
                       ? t("tabs.week")
+                      : activeRoute() === "terms"
+                        ? t("legal.termsTitle")
+                        : activeRoute() === "privacy"
+                          ? t("legal.privacyTitle")
                       : t("tabs.settings")
               }
               isConnected={isReady()}
-              showSignIn={!isReady()}
+              showSignIn={!isReady() && selectedBackend() !== null}
               signInLabel={t(resolveSignInLabelKey(isReady()))}
               accountLabel={storageGoogleAccountLabel() ?? t(resolveSignInLabelKey(isReady()))}
               signInDisabled={isReady() || !signInEnabled()}
@@ -1135,13 +1148,6 @@ export function App() {
               onWeekClick={handleWeekTab}
               onSettingsClick={handleSettingsTab}
             />
-
-            <section id="hello-view" class={`view${activeRoute() === "hello" ? "" : " hidden"}`}>
-              <div class="card">
-                <p class="label">Hello</p>
-                <p class="status">{isReady() ? t("status.connected") : t("status.clickSignIn", { signIn: t("auth.signIn") })}</p>
-              </div>
-            </section>
 
             <EntryForm
               visible={activeRoute() === "record-this-moment"}
@@ -1282,6 +1288,60 @@ export function App() {
               onReminderTimeChange={handleReminderTimeChange}
               onNotificationsEnabledChange={handleNotificationsEnabledChange}
             />
+
+            <section id="terms-view" class={`view${activeRoute() === "terms" ? "" : " hidden"}`}>
+              <article class="card legal-card">
+                <h2>{t("legal.termsTitle")}</h2>
+                <p class="setting-note">{t("legal.lastUpdated")}</p>
+                <div class="legal-locale-toggle" role="group" aria-label={t("locale.label")}>
+                  <button
+                    type="button"
+                    class={`btn legal-locale-btn${locale() === "pl" ? " tab-active" : ""}`}
+                    aria-pressed={locale() === "pl"}
+                    onClick={() => {
+                      void applyLocale("pl");
+                    }}
+                  >
+                    PL
+                  </button>
+                  <button
+                    type="button"
+                    class={`btn legal-locale-btn${locale() === "en" ? " tab-active" : ""}`}
+                    aria-pressed={locale() === "en"}
+                    onClick={() => {
+                      void applyLocale("en");
+                    }}
+                  >
+                    EN
+                  </button>
+                </div>
+                <h3>{t("legal.terms.sectionUseTitle")}</h3>
+                <p>{t("legal.terms.sectionUseBody")}</p>
+                <h3>{t("legal.terms.sectionDataTitle")}</h3>
+                <p>{t("legal.terms.sectionDataBody")}</p>
+                <h3>{t("legal.terms.sectionAvailabilityTitle")}</h3>
+                <p>{t("legal.terms.sectionAvailabilityBody")}</p>
+                <h3>{t("legal.terms.sectionContactTitle")}</h3>
+                <p>{t("legal.terms.sectionContactBody")}</p>
+              </article>
+            </section>
+
+            <section id="privacy-view" class={`view${activeRoute() === "privacy" ? "" : " hidden"}`}>
+              <article class="card legal-card">
+                <h2>{t("legal.privacyTitle")}</h2>
+                <p class="setting-note">{t("legal.lastUpdated")}</p>
+                <h3>{t("legal.privacy.sectionCollectedTitle")}</h3>
+                <p>{t("legal.privacy.sectionCollectedBody")}</p>
+                <h3>{t("legal.privacy.sectionUsageTitle")}</h3>
+                <p>{t("legal.privacy.sectionUsageBody")}</p>
+                <h3>{t("legal.privacy.sectionStorageTitle")}</h3>
+                <p>{t("legal.privacy.sectionStorageBody")}</p>
+                <h3>{t("legal.privacy.sectionRightsTitle")}</h3>
+                <p>{t("legal.privacy.sectionRightsBody")}</p>
+                <h3>{t("legal.privacy.sectionContactTitle")}</h3>
+                <p>{t("legal.privacy.sectionContactBody")}</p>
+              </article>
+            </section>
           </>
         }
       >
@@ -1351,6 +1411,14 @@ export function App() {
       </Show>
 
       <footer class="app-footer">
+        <div class="app-footer-legal">
+          <a class="app-footer-link" href={appPath("/terms.html")}>
+            {t("footer.terms")}
+          </a>
+          <a class="app-footer-link" href={appPath("/privacy.html")}>
+            {t("footer.privacy")}
+          </a>
+        </div>
         <p class="app-footer-copy">{t("footer.description")}</p>
         <p class="app-footer-by">
           by{" "}
