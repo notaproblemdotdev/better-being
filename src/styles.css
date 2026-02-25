@@ -450,6 +450,96 @@ select {
   margin-inline: auto;
 }
 
+.first-run-intro {
+  text-align: left;
+  gap: 0.7rem;
+}
+
+.first-run-intro-title {
+  margin: 0;
+  font-size: clamp(2.1rem, 5.8vw, 3.2rem);
+  line-height: 1.05;
+}
+
+.first-run-intro-body {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.first-run-intro-note {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.first-run-intro-begin {
+  width: min(220px, 100%);
+  justify-self: center;
+  margin-top: 0.35rem;
+}
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: color-mix(in srgb, var(--bg) 68%, rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.onboarding-card {
+  width: min(520px, 100%);
+  gap: 0.8rem;
+  text-align: left;
+}
+
+.onboarding-title {
+  margin: 0;
+  font-size: clamp(1.45rem, 3.2vw, 2rem);
+  line-height: 1.15;
+}
+
+.onboarding-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.onboarding-progress {
+  margin: -0.25rem 0 0;
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.onboarding-options {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.onboarding-option-btn {
+  width: 100%;
+  justify-content: center;
+  text-transform: capitalize;
+}
+
+.onboarding-backend-radios {
+  margin: 0;
+}
+
+.onboarding-back-btn {
+  width: fit-content;
+  justify-self: start;
+}
+
+.onboarding-error-note {
+  margin: 0;
+}
+
 .hidden {
   display: none;
 }

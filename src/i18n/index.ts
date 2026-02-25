@@ -69,6 +69,17 @@ export type I18nKey =
   | "backend.storageNoteIndexedDb"
   | "intro.title"
   | "intro.body"
+  | "intro.dataOwnership"
+  | "intro.legalHint"
+  | "intro.begin"
+  | "onboarding.languageTitle"
+  | "onboarding.themeTitle"
+  | "onboarding.handednessTitle"
+  | "onboarding.backendTitle"
+  | "onboarding.changeLater"
+  | "onboarding.progress"
+  | "onboarding.back"
+  | "onboarding.retryGoogle"
   | "form.step"
   | "form.title"
   | "form.subtitle"
@@ -165,6 +176,7 @@ export type I18nKey =
   | "settings.defaultPreferenceHelpLabel"
   | "settings.defaultPreferenceHelpText"
   | "settings.theme"
+  | "settings.handedness"
   | "settings.storageLocation"
   | "settings.openDriveFile"
   | "settings.loggedAs"
@@ -176,6 +188,8 @@ export type I18nKey =
   | "settings.notificationsGranted"
   | "settings.notificationsDenied"
   | "settings.notificationsUnsupported"
+  | "handedness.right"
+  | "handedness.left"
   | "reminder.notificationTitle"
   | "reminder.notificationBody";
 
@@ -240,7 +254,7 @@ const I18N: Record<Locale, I18nDict> = {
     "menu.theme": "Motyw",
     "menu.account": "Konto",
     "backend.ariaLabel": "Wybór źródła danych",
-    "backend.title": "Wybierz backend danych",
+    "backend.title": "Wybierz gdzie przechowywać dane",
     "backend.description": "Zdecyduj, gdzie aplikacja ma zapisywać Twoje odpowiedzi.",
     "backend.google": "Twój arkusz Google na Dysku Google",
     "backend.indexedDb": "Lokalnie",
@@ -251,8 +265,19 @@ const I18N: Record<Locale, I18nDict> = {
     "backend.indexedDbHelpText": "Dane są zapisywane lokalnie w tej przeglądarce i na tym urządzeniu.",
     "backend.storageNoteGoogle": "Dane będą zapisywane na Twoim Dysku Google w arkuszu Google o nazwie „beingbetter”.",
     "backend.storageNoteIndexedDb": "Dane będą zapisywane lokalnie na Twoim urządzeniu, w przeglądarce.",
-    "intro.title": "O aplikacji",
+    "intro.title": "better being",
     "intro.body": "To aplikacja do codziennego śledzenia samopoczucia i budowania lepszych nawyków.",
+    "intro.dataOwnership": "Wszystkie dane należą do Ciebie. Aplikacja nie przechowuje ich u siebie. Możesz zapisywać je na Dysku Google albo lokalnie w pamięci przeglądarki.",
+    "intro.legalHint": "Regulamin i Politykę prywatności znajdziesz w stopce.",
+    "intro.begin": "Zacznij",
+    "onboarding.languageTitle": "Wybierz język",
+    "onboarding.themeTitle": "Wybierz motyw",
+    "onboarding.handednessTitle": "Wybierz dominującą rękę",
+    "onboarding.backendTitle": "Wybierz miejsce zapisu danych",
+    "onboarding.changeLater": "To ustawienie możesz później zmienić w Ustawieniach.",
+    "onboarding.progress": "Krok {current} z {total}",
+    "onboarding.back": "Wstecz",
+    "onboarding.retryGoogle": "Spróbuj ponownie",
     "form.step": "Krok 1",
     "form.title": "Szybki check-in nastroju",
     "form.subtitle": "Wybierz ocenę, która najlepiej oddaje dzisiejszy dzień.",
@@ -322,7 +347,7 @@ const I18N: Record<Locale, I18nDict> = {
     "footer.description": "Prosta aplikacja do codziennego check-inu samopoczucia i śledzenia trendów.",
     "footer.terms": "Regulamin",
     "footer.privacy": "Polityka prywatności",
-    "footer.feedback": "Pomysł / błąd",
+    "footer.feedback": "Zgłoś pomysł / błąd",
     "footer.github": "Zobacz na GitHubie",
     "legal.lastUpdated": "Ostatnia aktualizacja: 24 lutego 2026",
     "legal.termsTitle": "Regulamin",
@@ -359,6 +384,7 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.defaultPreferenceHelpText":
       "To ustawienie będzie używane domyślnie na nowych urządzeniach, na których zalogujesz się tym kontem.",
     "settings.theme": "Domyślny motyw",
+    "settings.handedness": "Dominująca ręka",
     "settings.storageLocation": "Miejsce zapisu danych",
     "settings.openDriveFile": "Otwórz plik na Dysku Google",
     "settings.loggedAs": "Zalogowano jako:",
@@ -370,6 +396,8 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.notificationsGranted": "Włączone",
     "settings.notificationsDenied": "Zablokowane",
     "settings.notificationsUnsupported": "Nieobsługiwane",
+    "handedness.right": "Prawa",
+    "handedness.left": "Lewa",
     "reminder.notificationTitle": "better being",
     "reminder.notificationBody": "Jak minął Twój dzień? Dodaj ocenę.",
   },
@@ -427,7 +455,7 @@ const I18N: Record<Locale, I18nDict> = {
     "menu.theme": "Theme",
     "menu.account": "Account",
     "backend.ariaLabel": "Data backend selection",
-    "backend.title": "Choose a data backend",
+    "backend.title": "Choose where to store data",
     "backend.description": "Decide where the app should store your answers.",
     "backend.google": "Your Google Sheet on Google Drive",
     "backend.indexedDb": "On this device",
@@ -438,8 +466,19 @@ const I18N: Record<Locale, I18nDict> = {
     "backend.indexedDbHelpText": "Data is stored locally in this browser on this device.",
     "backend.storageNoteGoogle": "Data will be stored on your Google Drive in a Google Sheet called \"beingbetter\".",
     "backend.storageNoteIndexedDb": "Data will be stored locally on your device, in the browser.",
-    "intro.title": "About this app",
+    "intro.title": "better being",
     "intro.body": "This app helps you track daily wellbeing and (hopefully) build better habits over time.",
+    "intro.dataOwnership": "You own all of your data. The app does not store it for itself. You can store your data on Google Drive or locally in browser storage.",
+    "intro.legalHint": "You can find Terms of Service and Privacy Policy in the footer.",
+    "intro.begin": "Begin",
+    "onboarding.languageTitle": "Choose your language",
+    "onboarding.themeTitle": "Choose your theme",
+    "onboarding.handednessTitle": "Choose your dominant hand",
+    "onboarding.backendTitle": "Choose where to store your data",
+    "onboarding.changeLater": "You can change this later in Settings.",
+    "onboarding.progress": "Step {current} of {total}",
+    "onboarding.back": "Back",
+    "onboarding.retryGoogle": "Try again",
     "form.step": "Step 1",
     "form.title": "Mood check-in",
     "form.subtitle": "",
@@ -546,6 +585,7 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.defaultPreferenceHelpText":
       "This setting will be used by default on new devices where you sign in with this account.",
     "settings.theme": "Default theme",
+    "settings.handedness": "Dominant hand",
     "settings.storageLocation": "Data storage location",
     "settings.openDriveFile": "Open file on Google Drive",
     "settings.loggedAs": "Logged as:",
@@ -557,6 +597,8 @@ const I18N: Record<Locale, I18nDict> = {
     "settings.notificationsGranted": "Enabled",
     "settings.notificationsDenied": "Blocked",
     "settings.notificationsUnsupported": "Unsupported",
+    "handedness.right": "Right",
+    "handedness.left": "Left",
     "reminder.notificationTitle": "better being",
     "reminder.notificationBody": "How did your day go? Add your rating.",
   },

@@ -2,6 +2,7 @@ import type { JSX } from "solid-js";
 import type { Locale } from "../../i18n";
 import type { DataBackend } from "../../data/createAdapter";
 import type { ThemePreference } from "../../theme";
+import type { Handedness } from "../App";
 
 export function SettingsView(props: {
   visible: boolean;
@@ -9,6 +10,9 @@ export function SettingsView(props: {
   defaultPreferenceHelpLabel: string;
   defaultPreferenceHelpText: string;
   themeLabel: string;
+  handednessLabel: string;
+  handednessRightLabel: string;
+  handednessLeftLabel: string;
   storageLocationLabel: string;
   storageGoogleLabel: string;
   storageIndexedDbLabel: string;
@@ -30,6 +34,7 @@ export function SettingsView(props: {
   locale: Locale;
   supportedLocales: Locale[];
   themePreference: ThemePreference;
+  handedness: Handedness;
   storageBackend: DataBackend;
   storageBackendValue: DataBackend;
   showReminderSettings: boolean;
@@ -39,6 +44,7 @@ export function SettingsView(props: {
   notificationsUnsupported: boolean;
   onLocaleChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onThemePreferenceChange: JSX.EventHandler<HTMLSelectElement, Event>;
+  onHandednessChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onStorageBackendChange: JSX.EventHandler<HTMLSelectElement, Event>;
   onStorageGoogleSignIn: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
   onReminderEnabledChange: JSX.EventHandler<HTMLInputElement, Event>;
@@ -48,47 +54,53 @@ export function SettingsView(props: {
   return (
     <section id="settings-view" class={`view${props.visible ? "" : " hidden"}`}>
       <div class="card settings-card">
-        {props.storageBackend === "google" ? (
-          <>
-            <div class="setting-block">
-              <div class="setting-row">
-                <label for="settings-language" class="label">
-                  {props.languageLabel}
-                  <span class="setting-help" tabindex="0" aria-label={props.defaultPreferenceHelpLabel}>
-                    ?
-                    <span class="setting-help-tooltip" role="tooltip">
-                      {props.defaultPreferenceHelpText}
-                    </span>
-                  </span>
-                </label>
-                <select id="settings-language" class="locale-select setting-control" value={props.locale} onChange={props.onLocaleChange}>
-                  {props.supportedLocales.map((item) => (
-                    <option value={item}>{item.toUpperCase()}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        <div class="setting-block">
+          <div class="setting-row">
+            <label for="settings-language" class="label">
+              {props.languageLabel}
+              <span class="setting-help" tabindex="0" aria-label={props.defaultPreferenceHelpLabel}>
+                ?
+                <span class="setting-help-tooltip" role="tooltip">
+                  {props.defaultPreferenceHelpText}
+                </span>
+              </span>
+            </label>
+            <select id="settings-language" class="locale-select setting-control" value={props.locale} onChange={props.onLocaleChange}>
+              {props.supportedLocales.map((item) => (
+                <option value={item}>{item.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-            <div class="setting-block">
-              <div class="setting-row">
-                <label for="settings-theme" class="label">
-                  {props.themeLabel}
-                  <span class="setting-help" tabindex="0" aria-label={props.defaultPreferenceHelpLabel}>
-                    ?
-                    <span class="setting-help-tooltip" role="tooltip">
-                      {props.defaultPreferenceHelpText}
-                    </span>
-                  </span>
-                </label>
-                <select id="settings-theme" class="locale-select setting-control" value={props.themePreference} onChange={props.onThemePreferenceChange}>
-                  <option value="light">{props.themeOptionLightLabel}</option>
-                  <option value="dark">{props.themeOptionDarkLabel}</option>
-                  <option value="system">{props.themeOptionSystemLabel}</option>
-                </select>
-              </div>
-            </div>
-          </>
-        ) : null}
+        <div class="setting-block">
+          <div class="setting-row">
+            <label for="settings-theme" class="label">
+              {props.themeLabel}
+              <span class="setting-help" tabindex="0" aria-label={props.defaultPreferenceHelpLabel}>
+                ?
+                <span class="setting-help-tooltip" role="tooltip">
+                  {props.defaultPreferenceHelpText}
+                </span>
+              </span>
+            </label>
+            <select id="settings-theme" class="locale-select setting-control" value={props.themePreference} onChange={props.onThemePreferenceChange}>
+              <option value="light">{props.themeOptionLightLabel}</option>
+              <option value="dark">{props.themeOptionDarkLabel}</option>
+              <option value="system">{props.themeOptionSystemLabel}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-block">
+          <div class="setting-row">
+            <label for="settings-handedness" class="label">{props.handednessLabel}</label>
+            <select id="settings-handedness" class="locale-select setting-control" value={props.handedness} onChange={props.onHandednessChange}>
+              <option value="right">{props.handednessRightLabel}</option>
+              <option value="left">{props.handednessLeftLabel}</option>
+            </select>
+          </div>
+        </div>
 
         <div class="setting-block">
           <div class="setting-row">

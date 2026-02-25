@@ -43,8 +43,12 @@ type BeforeInstallPromptEvent = Event & {
 
 type AppRoute = "record-this-moment" | "past-data" | "settings" | "terms" | "privacy";
 type IntensityKey = "energy" | "stress" | "anxiety" | "joy";
+export type Handedness = "left" | "right";
+type OnboardingStep = "language" | "theme" | "handedness" | "backend";
+const ONBOARDING_STEPS: OnboardingStep[] = ["language", "theme", "handedness", "backend"];
 
 const BACKEND_COOKIE_NAME = "being_better_data_backend";
+const HANDEDNESS_STORAGE_KEY = "being_better_handedness";
 const FEEDBACK_ISSUE_BODY = [
   "## Quick summary",
   "What would you like to add, change, or fix?",
@@ -108,6 +112,8 @@ function detectNotificationPermissionState(): NotificationPermission | "unsuppor
 
 const SETTINGS_KEY_LOCALE = "locale";
 const SETTINGS_KEY_THEME_PREFERENCE = "theme_preference";
+const SETTINGS_KEY_HANDEDNESS = "handedness";
+const SETTINGS_KEY_ONBOARDING_DONE = "onboarding_done";
 const SETTINGS_KEY_REMINDER_ENABLED = "reminder_enabled";
 const SETTINGS_KEY_REMINDER_TIME = "reminder_time";
 const SETTINGS_KEY_STORAGE_BACKEND = "storage_backend";
@@ -138,6 +144,45 @@ function appPath(pathname: string): string {
     return pathname;
   }
   return `${BASE_PATH}${pathname}`;
+}
+
+function setupStepFromPathname(pathname: string): OnboardingStep | null {
+  const normalized = stripBasePath(pathname);
+  if (normalized === "/setup/language") {
+    return "language";
+  }
+  if (normalized === "/setup/theme") {
+    return "theme";
+  }
+  if (normalized === "/setup/handedness") {
+    return "handedness";
+  }
+  if (normalized === "/setup/backend" || normalized === "/setup/backend/google" || normalized === "/setup/backend/indexeddb") {
+    return "backend";
+  }
+  return null;
+}
+
+function isSetupIntroPath(pathname: string): boolean {
+  return stripBasePath(pathname) === "/setup/intro";
+}
+
+function setupBackendFromPathname(pathname: string): DataBackend | null {
+  const normalized = stripBasePath(pathname);
+  if (normalized === "/setup/backend/google") {
+    return "google";
+  }
+  if (normalized === "/setup/backend/indexeddb") {
+    return "indexeddb";
+  }
+  return null;
+}
+
+function setupPathForStep(step: OnboardingStep, backend: DataBackend): string {
+  if (step === "backend") {
+    return `/setup/backend/${backend}`;
+  }
+  return `/setup/${step}`;
 }
 
 function routeFromPathname(pathname: string): AppRoute {
@@ -171,6 +216,13 @@ function isKnownPathname(pathname: string): boolean {
     normalized === "/record-this-moment" ||
     normalized === "/past-data" ||
     normalized === "/settings" ||
+    normalized === "/setup/intro" ||
+    normalized === "/setup/language" ||
+    normalized === "/setup/theme" ||
+    normalized === "/setup/handedness" ||
+    normalized === "/setup/backend" ||
+    normalized === "/setup/backend/google" ||
+    normalized === "/setup/backend/indexeddb" ||
     normalized === "/terms" ||
     normalized === "/terms.html" ||
     normalized === "/privacy" ||
@@ -217,6 +269,22 @@ function parseBooleanSetting(value: string | undefined): boolean | null {
   return null;
 }
 
+function parseHandedness(value: string | undefined): Handedness | null {
+  if (value === "left" || value === "right") {
+    return value;
+  }
+  return null;
+}
+
+function detectInitialHandedness(): Handedness {
+  try {
+    const stored = parseHandedness(window.localStorage.getItem(HANDEDNESS_STORAGE_KEY) ?? undefined);
+    return stored ?? "right";
+  } catch {
+    return "right";
+  }
+}
+
 export function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -224,9 +292,11 @@ export function App() {
   const i18n = createI18n(initialLocale);
   const initialThemePreference = detectInitialThemePreference();
   const initialReminderSettings = detectInitialReminderSettings();
+  const initialHandedness = detectInitialHandedness();
 
   const [locale, setLocale] = createSignal(initialLocale);
   const [themePreference, setThemePreference] = createSignal<ThemePreference>(initialThemePreference);
+  const [handedness, setHandedness] = createSignal<Handedness>(initialHandedness);
   const [theme, setTheme] = createSignal<Theme>(resolveThemeFromPreference(initialThemePreference));
   const [toasts, setToasts] = createSignal<ToastItem[]>([]);
   const [isReady, setIsReady] = createSignal(false);
@@ -247,8 +317,11 @@ export function App() {
   const [backendDraft, setBackendDraft] = createSignal<DataBackend>("google");
   const [gateGoogleReady, setGateGoogleReady] = createSignal(false);
   const [gateGoogleSignInEnabled, setGateGoogleSignInEnabled] = createSignal(false);
+  const [gateGoogleError, setGateGoogleError] = createSignal<string | null>(null);
   const [gateGoogleAdapter, setGateGoogleAdapter] = createSignal<RatingsStoreAdapter | null>(null);
   const [adapter, setAdapter] = createSignal<RatingsStoreAdapter | null>(null);
+  const [onboardingStep, setOnboardingStep] = createSignal<OnboardingStep | null>(null);
+  const [onboardingDone, setOnboardingDone] = createSignal(false);
 
   const [wordsInput, setWordsInput] = createSignal("");
   const [suggestedWordsUsed, setSuggestedWordsUsed] = createSignal<string[]>([]);
@@ -288,6 +361,31 @@ export function App() {
 
   const wordCount = createMemo(() => splitWords(wordsInput()).length);
   const isLegalRoute = createMemo(() => activeRoute() === "terms" || activeRoute() === "privacy");
+  const showFirstRunIntro = createMemo(() => !isLegalRoute() && !onboardingDone() && onboardingStep() === null);
+  const showOnboarding = createMemo(() => onboardingStep() !== null && !isLegalRoute());
+  const onboardingTitle = createMemo(() => {
+    if (onboardingStep() === "language") {
+      return t("onboarding.languageTitle");
+    }
+    if (onboardingStep() === "theme") {
+      return t("onboarding.themeTitle");
+    }
+    if (onboardingStep() === "backend") {
+      return t("onboarding.backendTitle");
+    }
+    return t("onboarding.handednessTitle");
+  });
+  const onboardingStepIndex = createMemo(() => {
+    const step = onboardingStep();
+    if (!step) {
+      return -1;
+    }
+    return ONBOARDING_STEPS.indexOf(step);
+  });
+  const onboardingProgressLabel = createMemo(() => {
+    const index = onboardingStepIndex();
+    return t("onboarding.progress", { current: String(index + 1), total: String(ONBOARDING_STEPS.length) });
+  });
   const activeGoogleAdapter = createMemo<RatingsStoreAdapter | null>(() => {
     if (selectedBackend() === "google") {
       return adapter();
@@ -349,6 +447,8 @@ export function App() {
   const buildSettingsPayload = (storageBackendOverride?: DataBackend): Record<string, string> => ({
     [SETTINGS_KEY_LOCALE]: locale(),
     [SETTINGS_KEY_THEME_PREFERENCE]: themePreference(),
+    [SETTINGS_KEY_HANDEDNESS]: handedness(),
+    [SETTINGS_KEY_ONBOARDING_DONE]: onboardingDone() ? "1" : "0",
     [SETTINGS_KEY_REMINDER_ENABLED]: reminderEnabled() ? "1" : "0",
     [SETTINGS_KEY_REMINDER_TIME]: reminderTime(),
     [SETTINGS_KEY_STORAGE_BACKEND]: storageBackendOverride ?? selectedBackend() ?? "google",
@@ -396,6 +496,19 @@ export function App() {
         const nextTheme = resolveThemeFromPreference(nextThemePreference);
         applyTheme(nextTheme);
         setTheme(nextTheme);
+      }
+
+      const nextHandedness = parseHandedness(settings[SETTINGS_KEY_HANDEDNESS] ?? "");
+      if (nextHandedness && nextHandedness !== handedness()) {
+        persistHandedness(nextHandedness);
+      }
+
+      const parsedOnboardingDone = parseBooleanSetting(settings[SETTINGS_KEY_ONBOARDING_DONE]);
+      if (parsedOnboardingDone !== null && parsedOnboardingDone !== onboardingDone()) {
+        setOnboardingDone(parsedOnboardingDone);
+        if (parsedOnboardingDone) {
+          setOnboardingStep(null);
+        }
       }
 
       const parsedReminderEnabled = parseBooleanSetting(settings[SETTINGS_KEY_REMINDER_ENABLED]);
@@ -447,6 +560,15 @@ export function App() {
       setPersonalSuggestedWords(topWords);
     } catch {
       setPersonalSuggestedWords([]);
+    }
+  };
+
+  const persistHandedness = (nextValue: Handedness): void => {
+    setHandedness(nextValue);
+    try {
+      window.localStorage.setItem(HANDEDNESS_STORAGE_KEY, nextValue);
+    } catch {
+      // Ignore storage failures (for example private mode).
     }
   };
 
@@ -574,6 +696,7 @@ export function App() {
     setGateGoogleAdapter(draftAdapter);
     setGateGoogleReady(false);
     setGateGoogleSignInEnabled(false);
+    setGateGoogleError(null);
 
     try {
       await draftAdapter.init();
@@ -584,10 +707,12 @@ export function App() {
       if (draftAdapter.getAuthState() === "connected") {
         setGateGoogleReady(true);
         setGateGoogleSignInEnabled(false);
+        setGateGoogleError(null);
         return;
       }
 
       setGateGoogleSignInEnabled(true);
+      setGateGoogleError(null);
     } catch (error) {
       if (isStale()) {
         return;
@@ -596,6 +721,7 @@ export function App() {
       const failure = resolveInitFailureStatus("google", error);
       setStatus(t(failure.key), failure.isError);
       setGateGoogleSignInEnabled(false);
+      setGateGoogleError(t(failure.key));
     }
   }
 
@@ -639,6 +765,22 @@ export function App() {
       } else {
         setBackendDraft("google");
       }
+    }
+
+    if (isSetupIntroPath(location.pathname)) {
+      setOnboardingDone(false);
+      setOnboardingStep(null);
+    } else {
+      const setupStep = setupStepFromPathname(location.pathname);
+      if (setupStep) {
+        setOnboardingDone(false);
+        setOnboardingStep(setupStep);
+      }
+    }
+
+    const setupBackend = setupBackendFromPathname(location.pathname);
+    if (setupBackend) {
+      setBackendDraft(setupBackend);
     }
 
     const standalone = isStandaloneDisplay();
@@ -769,6 +911,57 @@ export function App() {
   createEffect(() => {
     if (!isKnownPathname(location.pathname)) {
       navigate(appPath("/"), { replace: true });
+    }
+  });
+
+  createEffect(() => {
+    if (location.search) {
+      navigate(location.pathname, { replace: true });
+    }
+  });
+
+  createEffect(() => {
+    if (onboardingDone() || isLegalRoute()) {
+      return;
+    }
+    const step = onboardingStep();
+    const isIntro = isSetupIntroPath(location.pathname);
+    if (!step && isIntro) {
+      return;
+    }
+    if (!step && !isIntro) {
+      navigate(appPath("/setup/intro"), { replace: true });
+      return;
+    }
+    if (step) {
+      const expectedPath = setupPathForStep(step, backendDraft());
+      if (stripBasePath(location.pathname) !== expectedPath) {
+        navigate(appPath(expectedPath), { replace: true });
+      }
+    }
+  });
+
+  createEffect(() => {
+    const setupStep = setupStepFromPathname(location.pathname);
+    if (setupStep) {
+      if (onboardingDone()) {
+        setOnboardingDone(false);
+      }
+      if (onboardingStep() !== setupStep) {
+        setOnboardingStep(setupStep);
+      }
+    } else if (isSetupIntroPath(location.pathname)) {
+      if (onboardingDone()) {
+        setOnboardingDone(false);
+      }
+      if (onboardingStep() !== null) {
+        setOnboardingStep(null);
+      }
+    }
+
+    const setupBackend = setupBackendFromPathname(location.pathname);
+    if (setupBackend && backendDraft() !== setupBackend) {
+      setBackendDraft(setupBackend);
     }
   });
 
@@ -920,6 +1113,16 @@ export function App() {
     const select = event.currentTarget as HTMLSelectElement;
     const nextPreference = parseThemePreference(select.value) ?? "system";
     await syncThemePreference(nextPreference);
+  };
+
+  const handleHandednessChange = (event: Event): void => {
+    const select = event.currentTarget as HTMLSelectElement;
+    const nextHandedness = parseHandedness(select.value);
+    if (!nextHandedness) {
+      return;
+    }
+    persistHandedness(nextHandedness);
+    void persistSettingsToAdapter();
   };
 
   const handleThemeChange = async (event: Event): Promise<void> => {
@@ -1080,6 +1283,63 @@ export function App() {
     }
   };
 
+  const handleBeginIntro = (): void => {
+    setOnboardingStep("language");
+    navigate(appPath("/setup/language"), { replace: true });
+  };
+
+  const finishOnboarding = (): void => {
+    setOnboardingDone(true);
+    setOnboardingStep(null);
+    void persistSettingsToAdapter();
+
+    if (selectedBackend() !== null) {
+      navigateToRoute("record-this-moment");
+    }
+  };
+
+  const handleOnboardingLanguage = (nextLocale: Locale): void => {
+    void applyLocale(nextLocale);
+    setOnboardingStep("theme");
+    navigate(appPath("/setup/theme"), { replace: true });
+  };
+
+  const handleOnboardingTheme = (nextPreference: ThemePreference): void => {
+    void syncThemePreference(nextPreference);
+    setOnboardingStep("handedness");
+    navigate(appPath("/setup/handedness"), { replace: true });
+  };
+
+  const handleOnboardingHandedness = (nextHandedness: Handedness): void => {
+    persistHandedness(nextHandedness);
+    void persistSettingsToAdapter();
+    setOnboardingStep("backend");
+    navigate(appPath(setupPathForStep("backend", backendDraft())), { replace: true });
+  };
+
+  const handleOnboardingBackendConfirm = (): void => {
+    if (!isBackendConfirmEnabled()) {
+      return;
+    }
+    handleBackendSelection(backendDraft());
+    finishOnboarding();
+  };
+
+  const handleRetryGateGoogleInit = (): void => {
+    gateBootSequence += 1;
+    void initGateGoogleAuth(gateBootSequence);
+  };
+
+  const handleOnboardingBack = (): void => {
+    const index = onboardingStepIndex();
+    if (index <= 0) {
+      return;
+    }
+    const nextStep = ONBOARDING_STEPS[index - 1];
+    setOnboardingStep(nextStep);
+    navigate(appPath(setupPathForStep(nextStep, backendDraft())), { replace: true });
+  };
+
   const handleGateGoogleSignIn = async (): Promise<void> => {
     const draftAdapter = gateGoogleAdapter();
     if (!draftAdapter?.requestSignIn) {
@@ -1128,253 +1388,371 @@ export function App() {
   return (
     <main class="shell">
       <Show
-        when={selectedBackend() === null && !isLegalRoute()}
+        when={showFirstRunIntro()}
         fallback={
+          <Show
+            when={selectedBackend() === null && !isLegalRoute()}
+            fallback={
+              <>
+                <Show when={!showFirstRunIntro()}>
+                <AppHeader
+                  locale={locale()}
+                  supportedLocales={SUPPORTED_LOCALES}
+                  t={t}
+                  theme={theme()}
+                  pageLabel={
+                    activeRoute() === "record-this-moment"
+                        ? t("tabs.entry")
+                        : activeRoute() === "past-data"
+                          ? t("tabs.week")
+                          : activeRoute() === "terms"
+                            ? t("legal.termsTitle")
+                            : activeRoute() === "privacy"
+                              ? t("legal.privacyTitle")
+                          : t("tabs.settings")
+                  }
+                  isConnected={isReady()}
+                  showSignIn={!isReady() && selectedBackend() !== null}
+                  signInLabel={t(resolveSignInLabelKey(isReady()))}
+                  accountLabel={storageGoogleAccountLabel() ?? t(resolveSignInLabelKey(isReady()))}
+                  signInDisabled={isReady() || !signInEnabled()}
+                  activeTab={routeToTab(activeRoute())}
+                  entryLabel={t("tabs.entry")}
+                  weekLabel={t("tabs.week")}
+                  settingsLabel={t("tabs.settings")}
+                  entryDisabled={!isReady()}
+                  weekDisabled={!isReady()}
+                  showInstall={!isInstalled()}
+                  installLabel={isInstalled() ? t("install.installed") : t("install.installApp")}
+                  installDisabled={isInstalled()}
+                  onLocaleChange={(event) => {
+                    void handleLocaleChange(event);
+                  }}
+                  onThemeChange={(event) => {
+                    void handleThemeChange(event);
+                  }}
+                  onSignIn={() => {
+                    void handleSignIn();
+                  }}
+                  onInstall={() => {
+                    void handleInstall();
+                  }}
+                  onTitleClick={handleEntryTab}
+                  onEntryClick={handleEntryTab}
+                  onWeekClick={handleWeekTab}
+                  onSettingsClick={handleSettingsTab}
+                />
+
+                <EntryForm
+                  visible={activeRoute() === "record-this-moment"}
+                  wordsLabel={t("form.words")}
+                  wordsPlaceholder={t("form.wordsPlaceholder")}
+                  wordCountLabel={t("form.wordCount")}
+                  suggestedWordsLabel={t("form.suggestedWords")}
+                  intensityLabels={{
+                    energy: t("form.energy"),
+                    stress: t("form.stress"),
+                    anxiety: t("form.anxiety"),
+                    joy: t("form.joy"),
+                  }}
+                  contextTagsLabel={t("form.contextTags")}
+                  customTagPlaceholder={t("form.customTagPlaceholder")}
+                  addTagLabel={t("form.addTag")}
+                  saveLabel={t("form.save")}
+                  softLimitHint={t("form.wordLimitHint")}
+                  wordsInputValue={wordsInput()}
+                  wordCount={wordCount()}
+                  wordLimit={20}
+                  showWordLimitHint={wordCount() > 20}
+                  suggestedWords={mergedSuggestedWords().map((word) => ({
+                    value: word,
+                    label: suggestedWordLabelMap()[word] ?? word,
+                  }))}
+                  contextTags={contextTags()}
+                  presetContextTags={PRESET_CONTEXT_TAGS.map((tag) => ({
+                    value: tag,
+                    label: presetTagLabelMap()[tag],
+                  }))}
+                  selectedContextTags={contextTags().map((tag) => ({
+                    value: tag,
+                    label: presetTagLabelMap()[tag] ?? tag,
+                  }))}
+                  customTagValue={customTagValue()}
+                  intensity={intensity()}
+                  onWordsInput={(event) => {
+                    setWordsInput(event.currentTarget.value);
+                  }}
+                  onAddSuggestedWord={handleAddSuggestedWord}
+                  onIntensityInput={handleIntensityInput}
+                  onTogglePresetTag={handleTogglePresetTag}
+                  onCustomTagInput={(event) => {
+                    setCustomTagValue(event.currentTarget.value);
+                  }}
+                  onAddCustomTag={() => {
+                    handleAddCustomTag();
+                  }}
+                  onRemoveTag={(tag) => {
+                    setContextTags((current) => current.filter((item) => item !== tag));
+                  }}
+                  onSubmit={(event) => {
+                    void handleSubmitCheckIn(event);
+                  }}
+                />
+
+                <WeekChartCard
+                  visible={activeRoute() === "past-data"}
+                  title={t("cloud.title")}
+                  emptyLabel={t("cloud.empty")}
+                  summaryTitle={t("analytics.summaryTitle")}
+                  totalCheckInsLabel={t("analytics.totalCheckIns")}
+                  activeDaysLabel={t("analytics.activeDays")}
+                  streakLabel={t("analytics.currentStreak")}
+                  volumeTitle={t("analytics.volumeTitle")}
+                  noVolumeLabel={t("analytics.noVolume")}
+                  contextTagsTitle={t("analytics.contextTagsTitle")}
+                  suggestedWordsTitle={t("analytics.suggestedWordsTitle")}
+                  noTagsLabel={t("analytics.noTags")}
+                  noSuggestedWordsLabel={t("analytics.noSuggestedWords")}
+                  timeframeLabel={t("cloud.timeframe")}
+                  timeframe={cloudWindow()}
+                  words={cloudWords()}
+                  insights={checkInInsights()}
+                  intensityLabels={{
+                    energy: t("form.energy"),
+                    stress: t("form.stress"),
+                    anxiety: t("form.anxiety"),
+                    joy: t("form.joy"),
+                  }}
+                  timeframeOptions={[
+                    { value: "today", label: t("cloud.today") },
+                    { value: "week", label: t("cloud.week") },
+                    { value: "month", label: t("cloud.month") },
+                    { value: "all-time", label: t("cloud.allTime") },
+                  ]}
+                  onTimeframeChange={(event) => {
+                    void handleTimeframeChange(event);
+                  }}
+                />
+
+                <SettingsView
+                  visible={activeRoute() === "settings"}
+                  languageLabel={t("settings.language")}
+                  defaultPreferenceHelpLabel={t("settings.defaultPreferenceHelpLabel")}
+                  defaultPreferenceHelpText={t("settings.defaultPreferenceHelpText")}
+                  themeLabel={t("settings.theme")}
+                  handednessLabel={t("settings.handedness")}
+                  handednessRightLabel={t("handedness.right")}
+                  handednessLeftLabel={t("handedness.left")}
+                  storageLocationLabel={t("settings.storageLocation")}
+                  storageGoogleLabel={t("backend.google")}
+                  storageIndexedDbLabel={t("backend.indexedDb")}
+                  storageHelpText={(settingsBackendDraft() ?? selectedBackend()) === "google" ? t("backend.storageNoteGoogle") : t("backend.storageNoteIndexedDb")}
+                  storageGoogleSignInLabel={t("auth.signIn")}
+                  showStorageGoogleSignIn={settingsBackendDraft() === "google" && selectedBackend() !== "google"}
+                  storageGoogleSignInDisabled={!settingsGoogleSignInEnabled()}
+                  storageGoogleFileUrl={storageGoogleFileUrl()}
+                  storageOpenDriveFileLabel={t("settings.openDriveFile")}
+                  storageLoggedAsLabel={t("settings.loggedAs")}
+                  storageGoogleAccountLabel={storageGoogleAccountLabel()}
+                  reminderEnabledLabel={t("settings.reminderEnabled")}
+                  reminderTimeLabel={t("settings.reminderTime")}
+                  reminderPermissionLabel={t("settings.reminderPermission")}
+                  reminderPermissionStateLabel={permissionStateLabel()}
+                  themeOptionLightLabel={t("theme.light")}
+                  themeOptionDarkLabel={t("theme.dark")}
+                  themeOptionSystemLabel={t("theme.system")}
+                  locale={locale()}
+                  supportedLocales={SUPPORTED_LOCALES}
+                  themePreference={themePreference()}
+                  handedness={handedness()}
+                  storageBackend={selectedBackend() ?? "google"}
+                  storageBackendValue={settingsBackendDraft() ?? selectedBackend() ?? "google"}
+                  showReminderSettings={isInstalled()}
+                  reminderEnabled={reminderEnabled()}
+                  reminderTime={reminderTime()}
+                  notificationsEnabled={notificationPermission() === "granted"}
+                  notificationsUnsupported={notificationPermission() === "unsupported"}
+                  onLocaleChange={(event) => {
+                    void handleLocaleChange(event);
+                  }}
+                  onThemePreferenceChange={(event) => {
+                    void handleThemePreferenceChange(event);
+                  }}
+                  onHandednessChange={handleHandednessChange}
+                  onStorageBackendChange={handleStorageBackendChange}
+                  onStorageGoogleSignIn={() => {
+                    void handleStorageGoogleSignIn();
+                  }}
+                  onReminderEnabledChange={handleReminderEnabledChange}
+                  onReminderTimeChange={handleReminderTimeChange}
+                  onNotificationsEnabledChange={handleNotificationsEnabledChange}
+                />
+
+                <section id="terms-view" class={`view${activeRoute() === "terms" ? "" : " hidden"}`}>
+                  <article class="card legal-card">
+                    <h2>{t("legal.termsTitle")}</h2>
+                    <p class="setting-note">{t("legal.lastUpdated")}</p>
+                    <div class="legal-locale-toggle" role="group" aria-label={t("locale.label")}>
+                      <button
+                        type="button"
+                        class={`btn legal-locale-btn${locale() === "pl" ? " tab-active" : ""}`}
+                        aria-pressed={locale() === "pl"}
+                        onClick={() => {
+                          void applyLocale("pl");
+                        }}
+                      >
+                        PL
+                      </button>
+                      <button
+                        type="button"
+                        class={`btn legal-locale-btn${locale() === "en" ? " tab-active" : ""}`}
+                        aria-pressed={locale() === "en"}
+                        onClick={() => {
+                          void applyLocale("en");
+                        }}
+                      >
+                        EN
+                      </button>
+                    </div>
+                    <h3>{t("legal.terms.sectionUseTitle")}</h3>
+                    <p>{t("legal.terms.sectionUseBody")}</p>
+                    <h3>{t("legal.terms.sectionDataTitle")}</h3>
+                    <p>{t("legal.terms.sectionDataBody")}</p>
+                    <h3>{t("legal.terms.sectionAvailabilityTitle")}</h3>
+                    <p>{t("legal.terms.sectionAvailabilityBody")}</p>
+                    <h3>{t("legal.terms.sectionContactTitle")}</h3>
+                    <p>{t("legal.terms.sectionContactBody")}</p>
+                  </article>
+                </section>
+
+                <section id="privacy-view" class={`view${activeRoute() === "privacy" ? "" : " hidden"}`}>
+                  <article class="card legal-card">
+                    <h2>{t("legal.privacyTitle")}</h2>
+                    <p class="setting-note">{t("legal.lastUpdated")}</p>
+                    <h3>{t("legal.privacy.sectionCollectedTitle")}</h3>
+                    <p>{t("legal.privacy.sectionCollectedBody")}</p>
+                    <h3>{t("legal.privacy.sectionUsageTitle")}</h3>
+                    <p>{t("legal.privacy.sectionUsageBody")}</p>
+                    <h3>{t("legal.privacy.sectionStorageTitle")}</h3>
+                    <p>{t("legal.privacy.sectionStorageBody")}</p>
+                    <h3>{t("legal.privacy.sectionRightsTitle")}</h3>
+                    <p>{t("legal.privacy.sectionRightsBody")}</p>
+                    <h3>{t("legal.privacy.sectionContactTitle")}</h3>
+                    <p>{t("legal.privacy.sectionContactBody")}</p>
+                  </article>
+                </section>
+                </Show>
+              </>
+            }
+          >
           <>
-            <AppHeader
-              locale={locale()}
-              supportedLocales={SUPPORTED_LOCALES}
-              t={t}
-              theme={theme()}
-              pageLabel={
-                activeRoute() === "record-this-moment"
-                    ? t("tabs.entry")
-                    : activeRoute() === "past-data"
-                      ? t("tabs.week")
-                      : activeRoute() === "terms"
-                        ? t("legal.termsTitle")
-                        : activeRoute() === "privacy"
-                          ? t("legal.privacyTitle")
-                      : t("tabs.settings")
-              }
-              isConnected={isReady()}
-              showSignIn={!isReady() && selectedBackend() !== null}
-              signInLabel={t(resolveSignInLabelKey(isReady()))}
-              accountLabel={storageGoogleAccountLabel() ?? t(resolveSignInLabelKey(isReady()))}
-              signInDisabled={isReady() || !signInEnabled()}
-              activeTab={routeToTab(activeRoute())}
-              entryLabel={t("tabs.entry")}
-              weekLabel={t("tabs.week")}
-              settingsLabel={t("tabs.settings")}
-              entryDisabled={!isReady()}
-              weekDisabled={!isReady()}
-              showInstall={!isInstalled()}
-              installLabel={isInstalled() ? t("install.installed") : t("install.installApp")}
-              installDisabled={isInstalled()}
-              onLocaleChange={(event) => {
-                void handleLocaleChange(event);
-              }}
-              onThemeChange={(event) => {
-                void handleThemeChange(event);
-              }}
-              onSignIn={() => {
-                void handleSignIn();
-              }}
-              onInstall={() => {
-                void handleInstall();
-              }}
-              onTitleClick={handleEntryTab}
-              onEntryClick={handleEntryTab}
-              onWeekClick={handleWeekTab}
-              onSettingsClick={handleSettingsTab}
-            />
-
-            <EntryForm
-              visible={activeRoute() === "record-this-moment"}
-              wordsLabel={t("form.words")}
-              wordsPlaceholder={t("form.wordsPlaceholder")}
-              wordCountLabel={t("form.wordCount")}
-              suggestedWordsLabel={t("form.suggestedWords")}
-              intensityLabels={{
-                energy: t("form.energy"),
-                stress: t("form.stress"),
-                anxiety: t("form.anxiety"),
-                joy: t("form.joy"),
-              }}
-              contextTagsLabel={t("form.contextTags")}
-              customTagPlaceholder={t("form.customTagPlaceholder")}
-              addTagLabel={t("form.addTag")}
-              saveLabel={t("form.save")}
-              softLimitHint={t("form.wordLimitHint")}
-              wordsInputValue={wordsInput()}
-              wordCount={wordCount()}
-              wordLimit={20}
-              showWordLimitHint={wordCount() > 20}
-              suggestedWords={mergedSuggestedWords().map((word) => ({
-                value: word,
-                label: suggestedWordLabelMap()[word] ?? word,
-              }))}
-              contextTags={contextTags()}
-              presetContextTags={PRESET_CONTEXT_TAGS.map((tag) => ({
-                value: tag,
-                label: presetTagLabelMap()[tag],
-              }))}
-              selectedContextTags={contextTags().map((tag) => ({
-                value: tag,
-                label: presetTagLabelMap()[tag] ?? tag,
-              }))}
-              customTagValue={customTagValue()}
-              intensity={intensity()}
-              onWordsInput={(event) => {
-                setWordsInput(event.currentTarget.value);
-              }}
-              onAddSuggestedWord={handleAddSuggestedWord}
-              onIntensityInput={handleIntensityInput}
-              onTogglePresetTag={handleTogglePresetTag}
-              onCustomTagInput={(event) => {
-                setCustomTagValue(event.currentTarget.value);
-              }}
-              onAddCustomTag={() => {
-                handleAddCustomTag();
-              }}
-              onRemoveTag={(tag) => {
-                setContextTags((current) => current.filter((item) => item !== tag));
-              }}
-              onSubmit={(event) => {
-                void handleSubmitCheckIn(event);
-              }}
-            />
-
-            <WeekChartCard
-              visible={activeRoute() === "past-data"}
-              title={t("cloud.title")}
-              emptyLabel={t("cloud.empty")}
-              summaryTitle={t("analytics.summaryTitle")}
-              totalCheckInsLabel={t("analytics.totalCheckIns")}
-              activeDaysLabel={t("analytics.activeDays")}
-              streakLabel={t("analytics.currentStreak")}
-              volumeTitle={t("analytics.volumeTitle")}
-              noVolumeLabel={t("analytics.noVolume")}
-              contextTagsTitle={t("analytics.contextTagsTitle")}
-              suggestedWordsTitle={t("analytics.suggestedWordsTitle")}
-              noTagsLabel={t("analytics.noTags")}
-              noSuggestedWordsLabel={t("analytics.noSuggestedWords")}
-              timeframeLabel={t("cloud.timeframe")}
-              timeframe={cloudWindow()}
-              words={cloudWords()}
-              insights={checkInInsights()}
-              intensityLabels={{
-                energy: t("form.energy"),
-                stress: t("form.stress"),
-                anxiety: t("form.anxiety"),
-                joy: t("form.joy"),
-              }}
-              timeframeOptions={[
-                { value: "today", label: t("cloud.today") },
-                { value: "week", label: t("cloud.week") },
-                { value: "month", label: t("cloud.month") },
-                { value: "all-time", label: t("cloud.allTime") },
-              ]}
-              onTimeframeChange={(event) => {
-                void handleTimeframeChange(event);
-              }}
-            />
-
-            <SettingsView
-              visible={activeRoute() === "settings"}
-              languageLabel={t("settings.language")}
-              defaultPreferenceHelpLabel={t("settings.defaultPreferenceHelpLabel")}
-              defaultPreferenceHelpText={t("settings.defaultPreferenceHelpText")}
-              themeLabel={t("settings.theme")}
-              storageLocationLabel={t("settings.storageLocation")}
-              storageGoogleLabel={t("backend.google")}
-              storageIndexedDbLabel={t("backend.indexedDb")}
-              storageHelpText={(settingsBackendDraft() ?? selectedBackend()) === "google" ? t("backend.storageNoteGoogle") : t("backend.storageNoteIndexedDb")}
-              storageGoogleSignInLabel={t("auth.signIn")}
-              showStorageGoogleSignIn={settingsBackendDraft() === "google" && selectedBackend() !== "google"}
-              storageGoogleSignInDisabled={!settingsGoogleSignInEnabled()}
-              storageGoogleFileUrl={storageGoogleFileUrl()}
-              storageOpenDriveFileLabel={t("settings.openDriveFile")}
-              storageLoggedAsLabel={t("settings.loggedAs")}
-              storageGoogleAccountLabel={storageGoogleAccountLabel()}
-              reminderEnabledLabel={t("settings.reminderEnabled")}
-              reminderTimeLabel={t("settings.reminderTime")}
-              reminderPermissionLabel={t("settings.reminderPermission")}
-              reminderPermissionStateLabel={permissionStateLabel()}
-              themeOptionLightLabel={t("theme.light")}
-              themeOptionDarkLabel={t("theme.dark")}
-              themeOptionSystemLabel={t("theme.system")}
-              locale={locale()}
-              supportedLocales={SUPPORTED_LOCALES}
-              themePreference={themePreference()}
-              storageBackend={selectedBackend() ?? "google"}
-              storageBackendValue={settingsBackendDraft() ?? selectedBackend() ?? "google"}
-              showReminderSettings={isInstalled()}
-              reminderEnabled={reminderEnabled()}
-              reminderTime={reminderTime()}
-              notificationsEnabled={notificationPermission() === "granted"}
-              notificationsUnsupported={notificationPermission() === "unsupported"}
-              onLocaleChange={(event) => {
-                void handleLocaleChange(event);
-              }}
-              onThemePreferenceChange={(event) => {
-                void handleThemePreferenceChange(event);
-              }}
-              onStorageBackendChange={handleStorageBackendChange}
-              onStorageGoogleSignIn={() => {
-                void handleStorageGoogleSignIn();
-              }}
-              onReminderEnabledChange={handleReminderEnabledChange}
-              onReminderTimeChange={handleReminderTimeChange}
-              onNotificationsEnabledChange={handleNotificationsEnabledChange}
-            />
-
-            <section id="terms-view" class={`view${activeRoute() === "terms" ? "" : " hidden"}`}>
-              <article class="card legal-card">
-                <h2>{t("legal.termsTitle")}</h2>
-                <p class="setting-note">{t("legal.lastUpdated")}</p>
-                <div class="legal-locale-toggle" role="group" aria-label={t("locale.label")}>
-                  <button
-                    type="button"
-                    class={`btn legal-locale-btn${locale() === "pl" ? " tab-active" : ""}`}
-                    aria-pressed={locale() === "pl"}
-                    onClick={() => {
-                      void applyLocale("pl");
-                    }}
-                  >
-                    PL
-                  </button>
-                  <button
-                    type="button"
-                    class={`btn legal-locale-btn${locale() === "en" ? " tab-active" : ""}`}
-                    aria-pressed={locale() === "en"}
-                    onClick={() => {
-                      void applyLocale("en");
-                    }}
-                  >
-                    EN
-                  </button>
-                </div>
-                <h3>{t("legal.terms.sectionUseTitle")}</h3>
-                <p>{t("legal.terms.sectionUseBody")}</p>
-                <h3>{t("legal.terms.sectionDataTitle")}</h3>
-                <p>{t("legal.terms.sectionDataBody")}</p>
-                <h3>{t("legal.terms.sectionAvailabilityTitle")}</h3>
-                <p>{t("legal.terms.sectionAvailabilityBody")}</p>
-                <h3>{t("legal.terms.sectionContactTitle")}</h3>
-                <p>{t("legal.terms.sectionContactBody")}</p>
-              </article>
-            </section>
-
-            <section id="privacy-view" class={`view${activeRoute() === "privacy" ? "" : " hidden"}`}>
-              <article class="card legal-card">
-                <h2>{t("legal.privacyTitle")}</h2>
-                <p class="setting-note">{t("legal.lastUpdated")}</p>
-                <h3>{t("legal.privacy.sectionCollectedTitle")}</h3>
-                <p>{t("legal.privacy.sectionCollectedBody")}</p>
-                <h3>{t("legal.privacy.sectionUsageTitle")}</h3>
-                <p>{t("legal.privacy.sectionUsageBody")}</p>
-                <h3>{t("legal.privacy.sectionStorageTitle")}</h3>
-                <p>{t("legal.privacy.sectionStorageBody")}</p>
-                <h3>{t("legal.privacy.sectionRightsTitle")}</h3>
-                <p>{t("legal.privacy.sectionRightsBody")}</p>
-                <h3>{t("legal.privacy.sectionContactTitle")}</h3>
-                <p>{t("legal.privacy.sectionContactBody")}</p>
-              </article>
-            </section>
           </>
+          </Show>
         }
       >
+        <section id="hello-view" class="view">
+          <article class="card first-run-intro">
+            <h2 class="first-run-intro-title">{t("intro.title")}</h2>
+            <p class="first-run-intro-body">{t("intro.body")}</p>
+            <p class="first-run-intro-body">{t("intro.dataOwnership")}</p>
+            <p class="first-run-intro-note">{t("intro.legalHint")}</p>
+            <button class="btn btn-primary first-run-intro-begin" type="button" onClick={handleBeginIntro}>
+              {t("intro.begin")}
+            </button>
+          </article>
+        </section>
+      </Show>
+
+      <Show when={showOnboarding()}>
+        <section class="onboarding-overlay">
+          <article class="card onboarding-card" role="dialog" aria-modal="true" aria-label={onboardingTitle()}>
+            <h2 class="onboarding-title">{onboardingTitle()}</h2>
+            <p class="onboarding-progress">{onboardingProgressLabel()}</p>
+            <p class="onboarding-note">{t("onboarding.changeLater")}</p>
+            <div class="onboarding-options">
+              <Show when={onboardingStep() === "language"}>
+                <>
+                  <button class="btn btn-primary onboarding-option-btn" type="button" onClick={() => handleOnboardingLanguage("en")}>
+                    English
+                  </button>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingLanguage("pl")}>
+                    Polski
+                  </button>
+                </>
+              </Show>
+              <Show when={onboardingStep() === "theme"}>
+                <>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingTheme("light")}>
+                    {t("theme.light")}
+                  </button>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingTheme("dark")}>
+                    {t("theme.dark")}
+                  </button>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingTheme("system")}>
+                    {t("theme.system")}
+                  </button>
+                </>
+              </Show>
+              <Show when={onboardingStep() === "handedness"}>
+                <>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingHandedness("right")}>
+                    {t("handedness.right")}
+                  </button>
+                  <button class="btn onboarding-option-btn" type="button" onClick={() => handleOnboardingHandedness("left")}>
+                    {t("handedness.left")}
+                  </button>
+                </>
+              </Show>
+              <Show when={onboardingStep() === "backend"}>
+                <>
+                  <button
+                    class={`btn onboarding-option-btn${backendDraft() === "google" ? " btn-primary" : ""}`}
+                    type="button"
+                    onClick={() => setBackendDraft("google")}
+                  >
+                    {t("backend.google")}
+                  </button>
+                  <button
+                    class={`btn onboarding-option-btn${backendDraft() === "indexeddb" ? " btn-primary" : ""}`}
+                    type="button"
+                    onClick={() => setBackendDraft("indexeddb")}
+                  >
+                    {t("backend.indexedDb")}
+                  </button>
+                  <Show when={backendDraft() === "google"}>
+                    <button
+                      class="btn onboarding-option-btn"
+                      type="button"
+                      disabled={!gateGoogleReady() && !gateGoogleSignInEnabled()}
+                      onClick={() => {
+                        void handleGateGoogleSignIn();
+                      }}
+                    >
+                      {t(resolveSignInLabelKey(gateGoogleReady()))}
+                    </button>
+                    <Show when={gateGoogleError()}>
+                      <p class="status status-error onboarding-error-note">{gateGoogleError()}</p>
+                      <button class="btn onboarding-option-btn" type="button" onClick={handleRetryGateGoogleInit}>
+                        {t("onboarding.retryGoogle")}
+                      </button>
+                    </Show>
+                  </Show>
+                  <button class="btn btn-primary onboarding-option-btn" type="button" disabled={!isBackendConfirmEnabled()} onClick={handleOnboardingBackendConfirm}>
+                    {t("backend.confirm")}
+                  </button>
+                </>
+              </Show>
+            </div>
+            <Show when={onboardingStepIndex() > 0}>
+              <button class="btn onboarding-back-btn" type="button" onClick={handleOnboardingBack}>
+                {t("onboarding.back")}
+              </button>
+            </Show>
+          </article>
+        </section>
+      </Show>
+
+      <Show when={selectedBackend() === null && !isLegalRoute() && !showFirstRunIntro() && !showOnboarding()}>
         <section class="card backend-gate" aria-label={t("backend.ariaLabel")}>
           <h1 id="title" class="backend-gate-brand">{t("app.title")}</h1>
           <h2 class="backend-gate-title">{t("backend.title")}</h2>
